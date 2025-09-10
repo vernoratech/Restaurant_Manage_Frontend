@@ -59,19 +59,19 @@ const HomePage = () => {
               ) : isAuthenticated ? (
                 <div className="flex items-center space-x-4">
                   <span className="text-sm text-gray-700">Welcome back, {user?.name || 'User'}!</span>
-                  <Button onClick={() => navigate('/dashboard')} variant="primary" size="sm">
+                  <Button className='cursor-pointer' onClick={() => navigate('/dashboard')} variant="primary" size="sm">
                     Dashboard
                   </Button>
-                  <Button onClick={logout} variant="outline" size="sm">
+                  <Button className='cursor-pointer' onClick={logout} variant="outline" size="sm">
                     Logout
                   </Button>
                 </div>
               ) : (
                 <>
-                  <Button onClick={() => handleAuthAction('/login')} variant="outline">
+                  <Button className='cursor-pointer' onClick={() => handleAuthAction('/login')} variant="outline">
                     Sign In
                   </Button>
-                  <Button onClick={() => handleAuthAction('/register')} variant="primary">
+                  <Button className='cursor-pointer' onClick={() => handleAuthAction('/register')} variant="primary">
                     Get Started
                   </Button>
                 </>
@@ -90,16 +90,16 @@ const HomePage = () => {
               <span className="block text-blue-600">Like a Pro</span>
             </h1>
             <p className="text-xl text-gray-600 mb-8 max-w-3xl mx-auto">
-              Streamline operations, boost revenue, and deliver exceptional dining experiences 
+              Streamline operations, boost revenue, and deliver exceptional dining experiences
               with VesnoraTech's all-in-one restaurant management platform.
             </p>
-            
+
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               {isAuthenticated ? (
                 <div className="space-y-4">
-                  <Button 
-                    size="lg" 
-                    className="w-full sm:w-auto"
+                  <Button
+                    size="lg"
+                    className="w-full sm:w-auto cursor-pointer"
                     onClick={() => navigate('/dashboard')}
                   >
                     Go to Dashboard
@@ -110,17 +110,17 @@ const HomePage = () => {
                 </div>
               ) : (
                 <>
-                  <Button 
-                    size="lg" 
-                    className="w-full sm:w-auto"
+                  <Button
+                    size="lg"
+                    className="w-full sm:w-auto cursor-pointer"
                     onClick={() => handleAuthAction('/register')}
                   >
                     Start Free Trial
                   </Button>
-                  <Button 
-                    variant="outline" 
-                    size="lg" 
-                    className="w-full sm:w-auto"
+                  <Button
+                    variant="outline"
+                    size="lg"
+                    className="w-full sm:w-auto cursor-pointer"
                     onClick={() => handleAuthAction('/login')}
                   >
                     Sign In
@@ -203,7 +203,7 @@ const HomePage = () => {
             <h2 className="text-3xl font-bold mb-4">Trusted by Restaurant Owners Worldwide</h2>
             <p className="text-gray-300 text-lg">Join thousands of successful restaurants using VesnoraTech</p>
           </div>
-          
+
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8 text-center">
             {[
               { value: "5,000+", label: "Restaurants", color: "text-blue-400" },
@@ -229,32 +229,35 @@ const HomePage = () => {
           <p className="text-xl text-blue-100 mb-8">
             Join thousands of successful restaurant owners who trust VesnoraTech
           </p>
-          
+
           {isAuthenticated ? (
-            <Button 
-              size="lg" 
-              className="bg-white text-blue-600 hover:bg-gray-100"
+            <Button
+              size="lg"
+              className=" text-blue-600 border cursor-pointer w-full sm:w-auto"
               onClick={() => navigate('/dashboard')}
             >
               Go to Your Dashboard
             </Button>
           ) : (
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Button 
-                size="lg" 
-                className="bg-white text-blue-600 hover:bg-gray-100 w-full sm:w-auto"
+              <Button
+                size="lg"
+                className=" w-full sm:w-auto border cursor-pointer"
                 onClick={() => handleAuthAction('/register')}
               >
                 Start Your Free Trial
               </Button>
-              <Button 
-                variant="outline" 
-                size="lg" 
-                className="border-white text-white hover:bg-white hover:text-blue-600 w-full sm:w-auto"
+              <Button
+                variant="outline"
+                size="lg"
+                className=" w-full sm:w-auto cursor-pointer"
                 onClick={() => handleAuthAction('/login')}
               >
                 Sign In
               </Button>
+
+
+
             </div>
           )}
         </div>
