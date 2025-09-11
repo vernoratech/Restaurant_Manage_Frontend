@@ -1,4 +1,4 @@
-// src/pages/Auth/Register.jsx - Fixed version
+// src/pages/Auth/Register.jsx - Updated with new fields
 import React, { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext.jsx'
@@ -10,18 +10,14 @@ const Register = () => {
   const [formData, setFormData] = useState({
     name: '',
     email: '',
+    phone: '',
+    restaurantName: '',
     password: '',
     confirmPassword: ''
   })
   const [errors, setErrors] = useState({})
 
   const { register, isLoading } = useAuth()
-
-  const generateUniqueEmail = () => {
-    const timestamp = Date.now()
-    const randomNum = Math.floor(Math.random() * 1000)
-    return `user${timestamp}${randomNum}@example.com`
-  }
 
   const handleChange = (e) => {
     const { name, value } = e.target
@@ -41,17 +37,30 @@ const Register = () => {
   const validateForm = () => {
     const newErrors = {}
 
+    // Full name validation
     if (!formData.name.trim()) {
-      newErrors.name = 'Name is required'
+      newErrors.name = 'Full name is required'
+    } else if (formData.name.trim().length < 2) {
+      newErrors.name = 'Name must be at least 2 characters'
     }
 
+    // Email validation
     if (!formData.email) {
       newErrors.email = 'Email is required'
     } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
       newErrors.email = 'Please enter a valid email'
     }
 
-    // ✅ Enhanced password validation
+    // Phone validation
+    if (!formData.phone) {
+      newErrors.phone = 'Phone number is required'
+    } else if (!/^[\+]?[0-9\s\-\(\)]{7,15}$/.test(formData.phone)) {
+      newErrors.phone = 'Please enter a valid phone number'
+    }
+
+    // Restaurant name is optional, no validation needed
+
+    // Password validation
     if (!formData.password) {
       newErrors.password = 'Password is required'
     } else {
@@ -70,7 +79,6 @@ const Register = () => {
         passwordErrors.push('at least one number')
       }
 
-      // Check for common weak passwords
       const commonPasswords = ['123456', '123456789', 'password', 'qwerty', '111111']
       if (commonPasswords.some(common => password.toLowerCase().includes(common.toLowerCase()))) {
         passwordErrors.push('cannot contain common passwords')
@@ -81,6 +89,7 @@ const Register = () => {
       }
     }
 
+    // Confirm password validation
     if (!formData.confirmPassword) {
       newErrors.confirmPassword = 'Please confirm your password'
     } else if (formData.password !== formData.confirmPassword) {
@@ -98,24 +107,27 @@ const Register = () => {
       return
     }
 
-    // ✅ Send only email and password (like login)
+    // Send all fields to registration (adapt to your API requirements)
     const registrationData = {
       email: formData.email,
-      password: formData.password
-      // Note: name is collected for future use but not sent to API yet
+      password: formData.password,
+      name: formData.name,
+      phone: formData.phone,
+      ...(formData.restaurantName && { restaurantName: formData.restaurantName })
     }
 
     console.log('🔄 Submitting registration form...')
     const result = await register(registrationData)
 
     if (!result.success) {
-      // ✅ Handle 409 conflict error specifically
       if (result.error.includes('conflict') || result.error.includes('exists') || result.error.includes('registered')) {
         setErrors({ email: 'This email is already registered. Please use a different email or try logging in.' })
       } else if (result.error.toLowerCase().includes('email')) {
         setErrors({ email: result.error })
       } else if (result.error.toLowerCase().includes('password')) {
         setErrors({ password: result.error })
+      } else if (result.error.toLowerCase().includes('phone')) {
+        setErrors({ phone: result.error })
       } else {
         setErrors({ general: result.error })
       }
@@ -125,9 +137,6 @@ const Register = () => {
   if (isLoading) {
     return <Loading overlay text="Creating account..." />
   }
-
-
-  // Add this helper function to Register.jsx
 
   const getPasswordStrength = (password) => {
     if (!password) return { strength: 0, text: '', color: '' }
@@ -151,7 +160,6 @@ const Register = () => {
     return { strength: score, text: 'Strong', color: 'text-green-600' }
   }
 
-
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8">
@@ -166,22 +174,6 @@ const Register = () => {
           </p>
         </div>
 
-        {/* ✅ Quick test email generator */}
-        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-          <p className="text-sm text-yellow-800 mb-2">
-            <strong>Testing:</strong> Use a unique email to avoid conflicts
-          </p>
-          <Button
-            type="button"
-            variant="outline"
-            size="small"
-            onClick={() => setFormData(prev => ({ ...prev, email: generateUniqueEmail() }))}
-            className="text-xs"
-          >
-            Generate Test Email
-          </Button>
-        </div>
-
         <form onSubmit={handleSubmit} className="space-y-6">
           {errors.general && (
             <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-lg">
@@ -189,8 +181,9 @@ const Register = () => {
             </div>
           )}
 
+          {/* 1. Full Name */}
           <Input
-            label="Full Name (for display)"
+            label="Full Name"
             type="text"
             name="name"
             value={formData.name}
@@ -200,6 +193,7 @@ const Register = () => {
             required
           />
 
+          {/* 2. Email */}
           <Input
             label="Email Address"
             type="email"
@@ -207,10 +201,33 @@ const Register = () => {
             value={formData.email}
             onChange={handleChange}
             error={errors.email}
-            placeholder="Enter a unique email address"
+            placeholder="Enter your email address"
             required
           />
 
+          {/* 3. Phone Number */}
+          <Input
+            label="Phone Number"
+            type="tel"
+            name="phone"
+            value={formData.phone}
+            onChange={handleChange}
+            error={errors.phone}
+            placeholder="Enter your phone number"
+            required
+          />
+
+          {/* 4. Restaurant Name (Optional) */}
+          <Input
+            label="Restaurant Name (Optional)"
+            type="text"
+            name="restaurantName"
+            value={formData.restaurantName}
+            onChange={handleChange}
+            placeholder="Enter your restaurant name (can be added later)"
+          />
+
+          {/* Password with Strength Indicator */}
           <div className="space-y-2">
             <Input
               label="Password"
@@ -259,6 +276,7 @@ const Register = () => {
             )}
           </div>
 
+          {/* Confirm Password */}
           <Input
             label="Confirm Password"
             type="password"

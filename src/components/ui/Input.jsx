@@ -1,12 +1,19 @@
-// src/components/ui/Input.jsx
+// src/components/ui/Input.jsx - Enhanced with glass effect support
 import React from 'react'
 
 const Input = ({ 
   label, 
   error, 
   className = '', 
+  glass = false,
   ...props 
 }) => {
+  const baseClasses = `w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+    glass 
+      ? 'bg-white/60 backdrop-blur-sm border-white/30' 
+      : 'bg-white border-gray-300'
+  }`
+
   return (
     <div className="mb-4">
       {label && (
@@ -15,7 +22,7 @@ const Input = ({
         </label>
       )}
       <input
-        className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+        className={`${baseClasses} ${
           error ? 'border-red-500' : ''
         } ${className}`}
         {...props}

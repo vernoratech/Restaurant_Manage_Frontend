@@ -1,16 +1,16 @@
 // src/components/ui/Button.jsx - Add size variants
 import React from 'react'
 
-const Button = ({ 
-  children, 
-  loading = false, 
-  variant = 'primary', 
+const Button = ({
+  children,
+  loading = false,
+  variant = 'primary',
   size = 'md',
-  className = '', 
-  ...props 
+  className = '',
+  ...props
 }) => {
-  const baseClasses = 'rounded-lg font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 transition-colors inline-flex items-center justify-center'
-  
+  const baseClasses = 'rounded-lg font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 transition-colors inline-flex items-center justify-center cursor-pointer'
+
   const variants = {
     primary: 'bg-blue-600 text-white hover:bg-blue-700 focus:ring-blue-500',
     secondary: 'bg-gray-600 text-white hover:bg-gray-700 focus:ring-gray-500',
@@ -23,9 +23,8 @@ const Button = ({
     lg: 'px-6 py-3 text-base',
   }
 
-  const classes = `${baseClasses} ${variants[variant]} ${sizes[size]} ${className} ${
-    loading ? 'opacity-50 cursor-not-allowed' : ''
-  }`
+  const classes = `${baseClasses} ${variants[variant]} ${sizes[size]} ${className} ${loading ? 'opacity-50 cursor-not-allowed' : ''
+    }`
 
   return (
     <button className={classes} disabled={loading} {...props}>

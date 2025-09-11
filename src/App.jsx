@@ -9,6 +9,7 @@ import Login from './pages/Auth/Login.jsx'
 import Register from './pages/Auth/Register.jsx'
 import RestaurantSetup from './pages/RestaurantSetup/Setup.jsx'
 import Dashboard from './pages/Dashboard/Dashboard.jsx'
+import Settings from './pages/Settings/Settings.jsx'
 
 function App() {
   return (
@@ -18,43 +19,53 @@ function App() {
           <Routes>
             {/* Public Home Page - accessible to all */}
             <Route path="/" element={<HomePage />} />
-            
+
             {/* Public Auth Routes - only for non-authenticated users */}
-            <Route 
-              path="/login" 
+            <Route
+              path="/login"
               element={
                 <PublicRoute>
                   <Login />
                 </PublicRoute>
-              } 
+              }
             />
-            
-            <Route 
-              path="/register" 
+
+            <Route
+              path="/register"
               element={
                 <PublicRoute>
                   <Register />
                 </PublicRoute>
-              } 
+              }
             />
-            
+
             {/* Protected Routes - only for authenticated users */}
-            <Route 
-              path="/restaurant-setup" 
+            <Route
+              path="/restaurant-setup"
               element={
                 <ProtectedRoute requireSetup={false}>
                   <RestaurantSetup />
                 </ProtectedRoute>
-              } 
+              }
             />
-            
-            <Route 
-              path="/dashboard" 
+
+            <Route
+              path="/dashboard"
               element={
                 <ProtectedRoute requireSetup={true}>
                   <Dashboard />
                 </ProtectedRoute>
-              } 
+              }
+            />
+
+            {/* Settings Route */}
+            <Route
+              path="/settings"
+              element={
+                <ProtectedRoute requireSetup={true}>
+                  <Settings />
+                </ProtectedRoute>
+              }
             />
 
             {/* 404 Route */}
