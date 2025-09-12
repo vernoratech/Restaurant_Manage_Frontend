@@ -5,6 +5,7 @@ import { useNavigationWarning } from '../../hooks/useNavigationWarning.js'
 import Button from '../../components/ui/Button.jsx'
 import Input from '../../components/ui/Input.jsx'
 import NavigationWarningModal from '../../components/NavigationWarningModal.jsx'
+import { useNavigate } from 'react-router-dom'
 
 const Settings = () => {
   const { user, logout } = useAuth()
@@ -12,6 +13,7 @@ const Settings = () => {
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [successMessage, setSuccessMessage] = useState('')
+  const navigate = useNavigate()
 
   // Load initial data
   const [accountData, setAccountData] = useState({
@@ -202,6 +204,8 @@ const Settings = () => {
               <Button 
                 variant="outline" 
                 onClick={() => window.history.back()}
+                // onClick={() =>navigate("/dashboard")}
+
               >
                 Back to Dashboard
               </Button>

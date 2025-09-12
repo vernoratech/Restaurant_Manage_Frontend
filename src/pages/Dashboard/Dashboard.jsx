@@ -1,10 +1,11 @@
-// src/pages/Dashboard/Dashboard.jsx - Enhanced with complete restaurant details
+// src/pages/Dashboard/Dashboard.jsx - Add revenue security
 import React, { useState, useEffect } from 'react'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { useNavigationWarning } from '../../hooks/useNavigationWarning.js'
 import Button from '../../components/ui/Button.jsx'
 import EditRestaurantModal from '../../components/EditRestaurantModal.jsx'
 import NavigationWarningModal from '../../components/NavigationWarningModal.jsx'
+import RevenueSecurityModal from '../../components/RevenueSecurityModal.jsx'
 import { useNavigate } from 'react-router-dom'
 
 const Dashboard = () => {
@@ -13,11 +14,24 @@ const Dashboard = () => {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
   const [showWarning, setShowWarning] = useState(true)
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
+  const [isRevenueVisible, setIsRevenueVisible] = useState(false)
+  const [revenueSecurityModal, setRevenueSecurityModal] = useState({
+    isOpen: false,
+    mode: 'verify' // 'verify', 'setup', 'change'
+  })
 
   const navigate = useNavigate()
 
   // Default logo URL
   const defaultLogo = 'https://www.vhv.rs/dpng/d/312-3126320_transparent-dummy-logo-png-png-download.png'
+
+  // Mock revenue data (in production, fetch from API)
+  const revenueData = {
+    today: 2850,
+    thisWeek: 18500,
+    thisMonth: 75200,
+    currency: '₹'
+  }
 
   // Custom navigation warning with better UX
   const {
@@ -39,7 +53,46 @@ const Dashboard = () => {
     if (savedData) {
       setRestaurantData(JSON.parse(savedData))
     }
+    
+    // Check if user has PIN access (session-based, expires on refresh)
+    const hasAccess = sessionStorage.getItem('revenueAccess')
+    if (hasAccess === 'granted') {
+      setIsRevenueVisible(true)
+    }
   }, [])
+
+  const handleRevenueToggle = () => {
+    if (isRevenueVisible) {
+      // Hide revenue
+      setIsRevenueVisible(false)
+      sessionStorage.removeItem('revenueAccess')
+    } else {
+      // Show revenue - need PIN verification
+      const savedPin = localStorage.getItem('revenuePIN')
+      if (!savedPin) {
+        // No PIN set, show setup modal
+        setRevenueSecurityModal({ isOpen: true, mode: 'setup' })
+      } else {
+        // PIN exists, show verification modal
+        setRevenueSecurityModal({ isOpen: true, mode: 'verify' })
+      }
+    }
+  }
+
+  const handleRevenueSecuritySuccess = () => {
+    setIsRevenueVisible(true)
+    sessionStorage.setItem('revenueAccess', 'granted')
+    
+    // Auto-hide after 30 minutes for security
+    setTimeout(() => {
+      setIsRevenueVisible(false)
+      sessionStorage.removeItem('revenueAccess')
+    }, 30 * 60 * 1000) // 30 minutes
+  }
+
+  const handleRevenueSecurityClose = () => {
+    setRevenueSecurityModal({ isOpen: false, mode: 'verify' })
+  }
 
   const handleEditClose = () => {
     setIsEditModalOpen(false)
@@ -99,6 +152,16 @@ const Dashboard = () => {
   const handleEditOpen = () => {
     setIsEditModalOpen(true)
     setHasUnsavedChanges(true)
+  }
+
+  const handleSettingsClick = () => {
+    // Check if PIN is set, if not, show setup modal first
+    const savedPin = localStorage.getItem('revenuePIN')
+    if (!savedPin) {
+      setRevenueSecurityModal({ isOpen: true, mode: 'setup' })
+    } else {
+      navigate('/settings')
+    }
   }
 
   return (
@@ -253,7 +316,7 @@ const Dashboard = () => {
             </div>
           </div>
 
-          {/* Stats Cards */}
+          {/* Stats Cards with Revenue Security */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
             <div className="bg-white p-6 rounded-lg shadow">
               <div className="flex items-center">
@@ -269,6 +332,7 @@ const Dashboard = () => {
               </div>
             </div>
 
+            {/* Revenue Card with Security */}
             <div className="bg-white p-6 rounded-lg shadow">
               <div className="flex items-center">
                 <div className="flex-shrink-0">
@@ -276,9 +340,24 @@ const Dashboard = () => {
                     <span className="text-green-600 text-lg">₹</span>
                   </div>
                 </div>
-                <div className="ml-4">
-                  <h3 className="text-sm font-medium text-gray-500">Revenue</h3>
-                  <p className="text-2xl font-bold text-green-600">₹0</p>
+                <div className="ml-4 flex-1">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-sm font-medium text-gray-500">Revenue</h3>
+                    <button
+                      onClick={handleRevenueToggle}
+                      className={`p-1 rounded-full transition-colors ${
+                        isRevenueVisible 
+                          ? 'text-green-600 hover:bg-green-100' 
+                          : 'text-gray-400 hover:bg-gray-100'
+                      }`}
+                      title={isRevenueVisible ? 'Hide Revenue' : 'Show Revenue'}
+                    >
+                      {isRevenueVisible ? '👁️' : '🙈'}
+                    </button>
+                  </div>
+                  <p className="text-2xl font-bold text-green-600">
+                    {isRevenueVisible ? `${revenueData.currency}${revenueData.today.toLocaleString()}` : '••••'}
+                  </p>
                 </div>
               </div>
             </div>
@@ -314,6 +393,46 @@ const Dashboard = () => {
             </div>
           </div>
 
+          {/* Extended Revenue Details (when visible) */}
+          {isRevenueVisible && (
+            <div className="bg-white rounded-lg shadow p-6 mb-8 border-l-4 border-green-500">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-bold text-gray-900">Revenue Details</h2>
+                <div className="flex items-center text-sm text-green-600">
+                  <span className="w-2 h-2 bg-green-400 rounded-full mr-2"></span>
+                  Protected View Active
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="bg-green-50 p-4 rounded-lg">
+                  <p className="text-sm text-green-600 font-medium">Today's Revenue</p>
+                  <p className="text-2xl font-bold text-green-900">
+                    {revenueData.currency}{revenueData.today.toLocaleString()}
+                  </p>
+                </div>
+                <div className="bg-green-50 p-4 rounded-lg">
+                  <p className="text-sm text-green-600 font-medium">This Week</p>
+                  <p className="text-2xl font-bold text-green-900">
+                    {revenueData.currency}{revenueData.thisWeek.toLocaleString()}
+                  </p>
+                </div>
+                <div className="bg-green-50 p-4 rounded-lg">
+                  <p className="text-sm text-green-600 font-medium">This Month</p>
+                  <p className="text-2xl font-bold text-green-900">
+                    {revenueData.currency}{revenueData.thisMonth.toLocaleString()}
+                  </p>
+                </div>
+              </div>
+              
+              <div className="mt-4 text-center">
+                <p className="text-xs text-gray-500">
+                  🔒 This session will automatically expire in 30 minutes for security
+                </p>
+              </div>
+            </div>
+          )}
+
           {/* Quick Actions */}
           <div className="bg-white rounded-lg shadow p-6 mb-8">
             <h2 className="text-xl font-bold mb-4">Quick Actions</h2>
@@ -330,7 +449,7 @@ const Dashboard = () => {
                 <span className="mr-2">📊</span>
                 Analytics
               </Button>
-              <Button className="w-full" variant="outline" onClick={() => navigate('/settings')}>
+              <Button className="w-full" variant="outline" onClick={handleSettingsClick}>
                 <span className="mr-2">⚙️</span>
                 Settings
               </Button>
@@ -377,6 +496,14 @@ const Dashboard = () => {
           isOpen={isEditModalOpen}
           onClose={handleEditClose}
           currentData={restaurantData}
+        />
+
+        {/* Revenue Security Modal */}
+        <RevenueSecurityModal
+          isOpen={revenueSecurityModal.isOpen}
+          mode={revenueSecurityModal.mode}
+          onClose={handleRevenueSecurityClose}
+          onSuccess={handleRevenueSecuritySuccess}
         />
 
         {/* Navigation Warning Modal */}
