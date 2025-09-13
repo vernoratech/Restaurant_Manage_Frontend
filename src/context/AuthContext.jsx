@@ -145,6 +145,13 @@ export const AuthProvider = ({ children }) => {
     return false;
   }
 
+  const updateUserVerification = (verifiedData) => {
+  const updatedUser = { ...user, isVerified: true, verifiedAt: verifiedData.verifiedAt }
+  setUser(updatedUser)
+  localStorage.setItem('userData', JSON.stringify(updatedUser))
+}
+
+
   const value = {
     user,
     isAuthenticated,
@@ -152,7 +159,8 @@ export const AuthProvider = ({ children }) => {
     login,
     register,
     logout,
-    checkRestaurantSetup
+    checkRestaurantSetup,
+    updateUserVerification 
   }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

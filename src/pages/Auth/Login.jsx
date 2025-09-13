@@ -95,8 +95,8 @@ const Login = () => {
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
           <p className="text-sm text-blue-800">
             <strong>Demo Credentials:</strong><br />
-            Email: Demo1@example.com<br />
-            Password: mypassword
+            Email: svish5633@gmail.com<br />
+            Password: Brijesh@123
           </p>
         </div>
 

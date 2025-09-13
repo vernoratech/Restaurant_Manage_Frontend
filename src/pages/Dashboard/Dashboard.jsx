@@ -6,6 +6,8 @@ import Button from '../../components/ui/Button.jsx'
 import EditRestaurantModal from '../../components/EditRestaurantModal.jsx'
 import NavigationWarningModal from '../../components/NavigationWarningModal.jsx'
 import RevenueSecurityModal from '../../components/RevenueSecurityModal.jsx'
+import EmailVerificationAlert from '../../components/EmailVerificationAlert.jsx'
+import VerifiedBadge from '../../components/VerifiedBadge.jsx'
 import { useNavigate } from 'react-router-dom'
 
 const Dashboard = () => {
@@ -21,14 +23,13 @@ const Dashboard = () => {
     mode: 'verify' // 'verify', 'setup', 'change'
   })
 
-  console.log("user>>",user);
-  
+  console.log("user>>", user);
+
 
   const navigate = useNavigate()
 
   // Default logo URL
-  const defaultLogo = 'https://www.vhv.rs/dpng/d/312-3126320_transparent-dummy-logo-png-png-download.png'
-
+  const defaultLogo = 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcT0w8rgpM6Xfx-DljjN2FkZPei5sthUsLH6Pg&s'
   // Mock revenue data (in production, fetch from API)
   const revenueData = {
     today: 2850,
@@ -225,7 +226,10 @@ const Dashboard = () => {
               <h1 className="text-2xl font-bold text-gray-900">
                 {restaurantData?.restaurantName || 'Restaurant'} Dashboard
               </h1>
-              <p className="text-gray-600">Welcome back!</p>
+              <div className="flex items-center space-x-2">
+                <p className="text-gray-600">Welcome back!</p>
+                {user?.isVerified && <VerifiedBadge isVerified={user.isVerified} size="sm" />}
+              </div>
               {hasUnsavedChanges && (
                 <p className="text-sm text-orange-600 flex items-center">
                   <span className="w-2 h-2 bg-orange-400 rounded-full mr-2 animate-pulse"></span>
@@ -268,6 +272,7 @@ const Dashboard = () => {
 
       {/* Dashboard Content */}
       <div className="max-w-7xl mx-auto px-4 py-8">
+        <EmailVerificationAlert user={user} />
         {/* Restaurant Information Card */}
         <div className="bg-white rounded-lg shadow p-6 mb-8">
           <div className="flex justify-between items-start mb-6">
@@ -388,8 +393,8 @@ const Dashboard = () => {
                   <button
                     onClick={handleRevenueToggle}
                     className={`p-1 rounded-full transition-colors ${isRevenueVisible
-                        ? 'text-green-600 hover:bg-green-100'
-                        : 'text-gray-400 hover:bg-gray-100'
+                      ? 'text-green-600 hover:bg-green-100'
+                      : 'text-gray-400 hover:bg-gray-100'
                       }`}
                     title={isRevenueVisible ? 'Hide Revenue' : 'Show Revenue'}
                   >
@@ -437,6 +442,7 @@ const Dashboard = () => {
         {/* Extended Revenue Details (when visible) */}
         {isRevenueVisible && (
           <div className="bg-white rounded-lg shadow p-6 mb-8 border-l-4 border-green-500">
+
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-bold text-gray-900">Revenue Details</h2>
               <div className="flex items-center text-sm text-green-600">
@@ -514,8 +520,8 @@ const Dashboard = () => {
                   <span className="mr-4">⭐ {restaurantData.selectedTemplate.rating}</span>
                   <span className="mr-4">📥 {restaurantData.selectedTemplate.downloads?.toLocaleString()} downloads</span>
                   <span className={`px-2 py-1 rounded-full text-xs ${restaurantData.selectedTemplate.is_free
-                      ? 'bg-green-100 text-green-700'
-                      : 'bg-blue-100 text-blue-700'
+                    ? 'bg-green-100 text-green-700'
+                    : 'bg-blue-100 text-blue-700'
                     }`}>
                     {restaurantData.selectedTemplate.is_free ? 'Free' : 'Premium'}
                   </span>

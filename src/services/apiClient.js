@@ -120,6 +120,44 @@ class ApiClient {
     });
   }
 
+  // Email verification endpoints
+  async sendEmailOTP() {
+    const token = localStorage.getItem('authToken');
+    if (!token) {
+      throw new Error('No authentication token found');
+    }
+    
+    return this.request('/auth/send-email-otp', {
+      method: 'POST',
+      body: JSON.stringify({ token }),
+    });
+  }
+
+  async resendEmailOTP() {
+    const token = localStorage.getItem('authToken');
+    if (!token) {
+      throw new Error('No authentication token found');
+    }
+    
+    return this.request('/auth/resend-email-otp', {
+      method: 'POST',
+      body: JSON.stringify({ token }),
+    });
+  }
+
+  async verifyEmailOTP(otp) {
+    const token = localStorage.getItem('authToken');
+    if (!token) {
+      throw new Error('No authentication token found');
+    }
+    
+    return this.request('/auth/verify-email-otp', {
+      method: 'POST',
+      body: JSON.stringify({ token, otp }),
+    });
+  }
+
+
 
   // --- User/Profile Endpoints ---
 
