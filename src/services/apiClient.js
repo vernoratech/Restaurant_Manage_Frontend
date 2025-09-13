@@ -1,5 +1,5 @@
 // src/services/apiClient.js
-const BASE_URL = 'https://restaurantmenu-five.vercel.app/api';
+const BASE_URL = "https://restaurantmenu-five.vercel.app/api";
 
 class ApiClient {
   constructor() {
@@ -11,37 +11,37 @@ class ApiClient {
 
     const config = {
       headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
+        "Content-Type": "application/json",
+        Accept: "application/json",
         ...options.headers,
       },
-      mode: 'cors',
+      mode: "cors",
       ...options,
     };
 
-    const token = localStorage.getItem('authToken');
+    const token = localStorage.getItem("authToken");
 
     // Add Authorization header if token exists and it's not a public endpoint
-    const publicEndpoints = ['/auth/login', '/auth/register'];
+    const publicEndpoints = ["/auth/login", "/auth/register"];
     if (token && !publicEndpoints.includes(endpoint)) {
       config.headers.Authorization = `Bearer ${token}`;
     }
 
     try {
-      console.log(`🌐 API Request: ${options.method || 'GET'} ${url}`);
-      console.log('📤 Request config:', config);
+      console.log(`🌐 API Request: ${options.method || "GET"} ${url}`);
+      console.log("📤 Request config:", config);
 
       const response = await fetch(url, config);
 
       console.log(`📊 Response Status: ${response.status}`);
 
       let data;
-      const contentType = response.headers.get('content-type');
-      if (contentType && contentType.includes('application/json')) {
+      const contentType = response.headers.get("content-type");
+      if (contentType && contentType.includes("application/json")) {
         data = await response.json();
       } else {
         const text = await response.text();
-        console.log('📄 Response text:', text);
+        console.log("📄 Response text:", text);
         try {
           data = text ? JSON.parse(text) : {};
         } catch {
@@ -56,24 +56,30 @@ class ApiClient {
 
         switch (response.status) {
           case 401:
-            errorMessage = 'Authentication failed. Please check your credentials.';
+            errorMessage =
+              "Authentication failed. Please check your credentials.";
             // Optionally, you could trigger a logout here
             // Example: window.dispatchEvent(new Event('auth-error'));
             break;
           case 403:
-            errorMessage = 'Access forbidden. You do not have permission to perform this action.';
+            errorMessage =
+              "Access forbidden. You do not have permission to perform this action.";
             break;
           case 404:
-            errorMessage = 'The requested resource was not found.';
+            errorMessage = "The requested resource was not found.";
             break;
           case 409:
-            errorMessage = 'A conflict occurred. This may be due to duplicate data.';
+            errorMessage =
+              "A conflict occurred. This may be due to duplicate data.";
             break;
           case 500:
-            errorMessage = 'An internal server error occurred. Please try again later.';
+            errorMessage =
+              "An internal server error occurred. Please try again later.";
             break;
           default:
-            errorMessage = errorMessage || `An unexpected error occurred: ${response.statusText}`;
+            errorMessage =
+              errorMessage ||
+              `An unexpected error occurred: ${response.statusText}`;
         }
         throw new Error(errorMessage);
       }
@@ -81,8 +87,10 @@ class ApiClient {
       return data;
     } catch (error) {
       console.error(`🚨 API Error:`, error);
-      if (error.name === 'TypeError' && error.message.includes('fetch')) {
-        throw new Error('Network error. Please check your internet connection and try again.');
+      if (error.name === "TypeError" && error.message.includes("fetch")) {
+        throw new Error(
+          "Network error. Please check your internet connection and try again."
+        );
       }
       throw error;
     }
@@ -91,85 +99,94 @@ class ApiClient {
   // --- Auth Endpoints ---
 
   async login(credentials) {
-    return this.request('/auth/login', {
-      method: 'POST',
+    return this.request("/auth/login", {
+      method: "POST",
       body: JSON.stringify(credentials),
     });
   }
 
   async register(userData) {
-    return this.request('/auth/register', {
-      method: 'POST',
+    return this.request("/auth/register", {
+      method: "POST",
       body: JSON.stringify(userData),
     });
   }
 
   async logout() {
-    const response = await this.request('/auth/logout', {
-      method: 'POST',
+    const response = await this.request("/auth/logout", {
+      method: "POST",
     });
-    localStorage.removeItem('authToken');
+    localStorage.removeItem("authToken");
     return response;
   }
-  
+
   // ✅ NEW: verifyToken method
   async verifyToken() {
     // This endpoint specifically needs the Authorization header, which the request method handles.
-    return this.request('/auth/verify', {
-        method: 'GET',
+    return this.request("/auth/verify", {
+      method: "GET",
     });
   }
 
   // Email verification endpoints
   async sendEmailOTP() {
-    const token = localStorage.getItem('authToken');
+    const token = localStorage.getItem("authToken");
     if (!token) {
-      throw new Error('No authentication token found');
+      throw new Error("No authentication token found");
     }
-    
-    return this.request('/auth/send-email-otp', {
-      method: 'POST',
+
+    return this.request("/auth/send-email-otp", {
+      method: "POST",
       body: JSON.stringify({ token }),
     });
   }
 
   async resendEmailOTP() {
-    const token = localStorage.getItem('authToken');
+    const token = localStorage.getItem("authToken");
     if (!token) {
-      throw new Error('No authentication token found');
+      throw new Error("No authentication token found");
     }
-    
-    return this.request('/auth/resend-email-otp', {
-      method: 'POST',
+
+    return this.request("/auth/resend-email-otp", {
+      method: "POST",
       body: JSON.stringify({ token }),
     });
   }
 
   async verifyEmailOTP(otp) {
-    const token = localStorage.getItem('authToken');
+    const token = localStorage.getItem("authToken");
     if (!token) {
-      throw new Error('No authentication token found');
+      throw new Error("No authentication token found");
     }
-    
-    return this.request('/auth/verify-email-otp', {
-      method: 'POST',
+
+    return this.request("/auth/verify-email-otp", {
+      method: "POST",
       body: JSON.stringify({ token, otp }),
     });
   }
 
+  async getTemplates(params = {}) {
+    const queryString = new URLSearchParams(params).toString();
+    const endpoint = `/restaurants/templates${
+      queryString ? `?${queryString}` : ""
+    }`;
 
+    return this.request(endpoint, {
+      method: "GET",
+    });
+  }
 
   // --- User/Profile Endpoints ---
 
   async getProfile() {
-    return this.request('/user/profile');
+    return this.request("/user/profile");
   }
 
   // You can add other restaurant-related API calls here
   async registerRestaurant(restaurantData) {
-    return this.request('/restaurants/register', {
-        method: 'POST',
-        body: JSON.stringify(restaurantData),
+    return this.request("/restaurants/register", {
+      method: "POST",
+      body: JSON.stringify(restaurantData),
     });
   }
 }

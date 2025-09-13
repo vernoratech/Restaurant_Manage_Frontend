@@ -1,89 +1,89 @@
 // src/pages/Dashboard/Dashboard.jsx - Fixed Version
-import React, { useState, useEffect } from 'react'
-import { useAuth } from '../../context/AuthContext.jsx'
-import { useNavigationWarning } from '../../hooks/useNavigationWarning.js'
-import Button from '../../components/ui/Button.jsx'
-import EditRestaurantModal from '../../components/EditRestaurantModal.jsx'
-import NavigationWarningModal from '../../components/NavigationWarningModal.jsx'
-import RevenueSecurityModal from '../../components/RevenueSecurityModal.jsx'
-import EmailVerificationAlert from '../../components/EmailVerificationAlert.jsx'
-import VerifiedBadge from '../../components/VerifiedBadge.jsx'
-import { useNavigate } from 'react-router-dom'
+import React, { useState, useEffect } from "react";
+import { useAuth } from "../../context/AuthContext.jsx";
+import { useNavigationWarning } from "../../hooks/useNavigationWarning.js";
+import Button from "../../components/ui/Button.jsx";
+import EditRestaurantModal from "../../components/EditRestaurantModal.jsx";
+import NavigationWarningModal from "../../components/NavigationWarningModal.jsx";
+import RevenueSecurityModal from "../../components/RevenueSecurityModal.jsx";
+import EmailVerificationAlert from "../../components/EmailVerificationAlert.jsx";
+import VerifiedBadge from "../../components/VerifiedBadge.jsx";
+import { useNavigate } from "react-router-dom";
 
 const Dashboard = () => {
-  const { user, logout, checkRestaurantSetup } = useAuth() // ✅ Added checkRestaurantSetup
-  const [restaurantData, setRestaurantData] = useState(null) // ✅ Changed to null
-  const [isLoading, setIsLoading] = useState(true) // ✅ Added isLoading state
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false)
-  const [showWarning, setShowWarning] = useState(true)
-  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
-  const [isRevenueVisible, setIsRevenueVisible] = useState(false)
+  const { user, logout, checkRestaurantSetup } = useAuth(); // ✅ Added checkRestaurantSetup
+  const [restaurantData, setRestaurantData] = useState(null); // ✅ Changed to null
+  const [isLoading, setIsLoading] = useState(true); // ✅ Added isLoading state
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [showWarning, setShowWarning] = useState(true);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [isRevenueVisible, setIsRevenueVisible] = useState(false);
   const [revenueSecurityModal, setRevenueSecurityModal] = useState({
     isOpen: false,
-    mode: 'verify' // 'verify', 'setup', 'change'
-  })
+    mode: "verify", // 'verify', 'setup', 'change'
+  });
 
   console.log("user>>", user);
 
-
-  const navigate = useNavigate()
+  const navigate = useNavigate();
 
   // Default logo URL
-  const defaultLogo = 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcT0w8rgpM6Xfx-DljjN2FkZPei5sthUsLH6Pg&s'
+  const defaultLogo =
+    "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcT0w8rgpM6Xfx-DljjN2FkZPei5sthUsLH6Pg&s";
   // Mock revenue data (in production, fetch from API)
   const revenueData = {
     today: 2850,
     thisWeek: 18500,
     thisMonth: 75200,
-    currency: '₹'
-  }
+    currency: "₹",
+  };
 
   // Custom navigation warning with better UX
   const {
     showModal: showNavWarning,
     handleConfirm: confirmNavigation,
     handleCancel: cancelNavigation,
-    setNavigationAllowed
+    setNavigationAllowed,
   } = useNavigationWarning(
     showWarning,
     "Leave Dashboard?",
     hasUnsavedChanges
       ? "Changes you made may not be saved."
       : "Are you sure you want to leave the dashboard?"
-  )
+  );
 
   useEffect(() => {
     // ✅ FIX: Centralized logic to load restaurant data
     const loadRestaurantData = () => {
-      const savedData = localStorage.getItem('restaurantData')
+      const savedData = localStorage.getItem("restaurantData");
       if (savedData) {
         try {
-          const parsedData = JSON.parse(savedData)
-          console.log("Loaded restaurant data from localStorage:", parsedData)
-          setRestaurantData(parsedData)
+          const parsedData = JSON.parse(savedData);
+          console.log("Loaded restaurant data from localStorage:", parsedData);
+          setRestaurantData(parsedData);
         } catch (error) {
-          console.error('Error parsing restaurant data:', error)
-          setRestaurantData({}) // fallback to empty object
+          console.error("Error parsing restaurant data:", error);
+          setRestaurantData({}); // fallback to empty object
         }
       } else {
         // If no data, check setup status and redirect if needed
         if (!checkRestaurantSetup()) {
-          navigate('/restaurant-setup')
-          return
+          navigate("/restaurant-setup");
+          return;
         }
-        setRestaurantData({}) // Set empty object if no data
+        setRestaurantData({}); // Set empty object if no data
       }
-      setIsLoading(false)
-    }
+      setIsLoading(false);
+    };
 
-    loadRestaurantData()
+    loadRestaurantData();
 
     // Check for session-based revenue access
-    const hasAccess = sessionStorage.getItem('revenueAccess')
-    if (hasAccess === 'granted') {
-      setIsRevenueVisible(true)
+    const hasAccess = sessionStorage.getItem("revenueAccess");
+    if (hasAccess === "granted") {
+      setIsRevenueVisible(true);
     }
-  }, [navigate, checkRestaurantSetup])
+  }, [navigate, checkRestaurantSetup]);
 
   // ✅ FIX: Loading state handling
   if (isLoading) {
@@ -94,60 +94,60 @@ const Dashboard = () => {
           <p className="mt-4 text-gray-600">Loading Dashboard...</p>
         </div>
       </div>
-    )
+    );
   }
 
   const handleRevenueToggle = () => {
     if (isRevenueVisible) {
       // Hide revenue
-      setIsRevenueVisible(false)
-      sessionStorage.removeItem('revenueAccess')
+      setIsRevenueVisible(false);
+      sessionStorage.removeItem("revenueAccess");
     } else {
       // Show revenue - need PIN verification
-      const savedPin = localStorage.getItem('revenuePIN')
+      const savedPin = localStorage.getItem("revenuePIN");
       if (!savedPin) {
         // No PIN set, show setup modal
-        setRevenueSecurityModal({ isOpen: true, mode: 'setup' })
+        setRevenueSecurityModal({ isOpen: true, mode: "setup" });
       } else {
         // PIN exists, show verification modal
-        setRevenueSecurityModal({ isOpen: true, mode: 'verify' })
+        setRevenueSecurityModal({ isOpen: true, mode: "verify" });
       }
     }
-  }
+  };
 
   const handleRevenueSecuritySuccess = () => {
-    setIsRevenueVisible(true)
-    sessionStorage.setItem('revenueAccess', 'granted')
+    setIsRevenueVisible(true);
+    sessionStorage.setItem("revenueAccess", "granted");
 
     // Auto-hide after 30 minutes for security
     setTimeout(() => {
-      setIsRevenueVisible(false)
-      sessionStorage.removeItem('revenueAccess')
-    }, 30 * 60 * 1000) // 30 minutes
-  }
+      setIsRevenueVisible(false);
+      sessionStorage.removeItem("revenueAccess");
+    }, 30 * 60 * 1000); // 30 minutes
+  };
 
   const handleRevenueSecurityClose = () => {
-    setRevenueSecurityModal({ isOpen: false, mode: 'verify' })
-  }
+    setRevenueSecurityModal({ isOpen: false, mode: "verify" });
+  };
 
   const handleEditClose = () => {
-    setIsEditModalOpen(false)
-    setHasUnsavedChanges(false)
+    setIsEditModalOpen(false);
+    setHasUnsavedChanges(false);
 
     // Reload data after edit
-    const savedData = localStorage.getItem('restaurantData')
+    const savedData = localStorage.getItem("restaurantData");
     if (savedData) {
       try {
-        setRestaurantData(JSON.parse(savedData))
+        setRestaurantData(JSON.parse(savedData));
       } catch (error) {
-        console.error('Error reloading restaurant data:', error)
+        console.error("Error reloading restaurant data:", error);
       }
     }
-  }
+  };
 
   const handleLogout = () => {
     // Custom logout confirmation
-    const logoutModal = document.createElement('div')
+    const logoutModal = document.createElement("div");
     logoutModal.innerHTML = `
       <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-4" id="logout-modal">
         <div class="bg-white rounded-xl shadow-2xl w-full max-w-md">
@@ -172,37 +172,37 @@ const Dashboard = () => {
           </div>
         </div>
       </div>
-    `
+    `;
 
-    document.body.appendChild(logoutModal)
+    document.body.appendChild(logoutModal);
 
-    document.getElementById('cancel-logout').onclick = () => {
-      document.body.removeChild(logoutModal)
-    }
+    document.getElementById("cancel-logout").onclick = () => {
+      document.body.removeChild(logoutModal);
+    };
 
-    document.getElementById('confirm-logout').onclick = () => {
-      setNavigationAllowed(true)
-      setShowWarning(false)
-      document.body.removeChild(logoutModal)
-      logout()
-    }
-  }
+    document.getElementById("confirm-logout").onclick = () => {
+      setNavigationAllowed(true);
+      setShowWarning(false);
+      document.body.removeChild(logoutModal);
+      logout();
+    };
+  };
 
   // Simulate unsaved changes when editing
   const handleEditOpen = () => {
-    setIsEditModalOpen(true)
-    setHasUnsavedChanges(true)
-  }
+    setIsEditModalOpen(true);
+    setHasUnsavedChanges(true);
+  };
 
   const handleSettingsClick = () => {
     // Check if PIN is set, if not, show setup modal first
-    const savedPin = localStorage.getItem('revenuePIN')
+    const savedPin = localStorage.getItem("revenuePIN");
     if (!savedPin) {
-      setRevenueSecurityModal({ isOpen: true, mode: 'setup' })
+      setRevenueSecurityModal({ isOpen: true, mode: "setup" });
     } else {
-      navigate('/settings')
+      navigate("/settings");
     }
-  }
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -217,18 +217,20 @@ const Dashboard = () => {
                 alt="Restaurant Logo"
                 className="h-12 w-12 object-contain rounded-lg border border-gray-200"
                 onError={(e) => {
-                  e.target.src = defaultLogo
+                  e.target.src = defaultLogo;
                 }}
               />
             </div>
 
             <div>
               <h1 className="text-2xl font-bold text-gray-900">
-                {restaurantData?.restaurantName || 'Restaurant'} Dashboard
+                {restaurantData?.restaurantName || "Restaurant"} Dashboard
               </h1>
               <div className="flex items-center space-x-2">
                 <p className="text-gray-600">Welcome back!</p>
-                {user?.isVerified && <VerifiedBadge isVerified={user.isVerified} size="sm" />}
+                {user?.isVerified && (
+                  <VerifiedBadge isVerified={user.isVerified} size="sm" />
+                )}
               </div>
               {hasUnsavedChanges && (
                 <p className="text-sm text-orange-600 flex items-center">
@@ -276,7 +278,9 @@ const Dashboard = () => {
         {/* Restaurant Information Card */}
         <div className="bg-white rounded-lg shadow p-6 mb-8">
           <div className="flex justify-between items-start mb-6">
-            <h2 className="text-xl font-semibold text-gray-900">Restaurant Information</h2>
+            <h2 className="text-xl font-semibold text-gray-900">
+              Restaurant Information
+            </h2>
             <Button onClick={handleEditOpen} size="sm" variant="outline">
               Edit
             </Button>
@@ -290,26 +294,32 @@ const Dashboard = () => {
                 alt="Restaurant Logo"
                 className="h-24 w-24 object-contain rounded-xl border border-gray-200"
                 onError={(e) => {
-                  e.target.src = defaultLogo
+                  e.target.src = defaultLogo;
                 }}
               />
-              <p className="text-xs text-gray-500 text-center mt-1">Restaurant Logo</p>
+              <p className="text-xs text-gray-500 text-center mt-1">
+                Restaurant Logo
+              </p>
             </div>
 
             <div className="flex-1">
               <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                {restaurantData?.restaurantName || 'Restaurant Name Not Set'}
+                {restaurantData?.restaurantName || "Restaurant Name Not Set"}
               </h3>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <p className="text-sm text-gray-500">Contact Number</p>
                   {/* ✅ FIX: Use correct API field name */}
-                  <p className="font-medium">{restaurantData?.restaurantContactNumber || 'Not set'}</p>
+                  <p className="font-medium">
+                    {restaurantData?.restaurantContactNumber || "Not set"}
+                  </p>
                 </div>
                 <div>
                   <p className="text-sm text-gray-500">Cuisine Type</p>
-                  <p className="font-medium">{restaurantData?.cuisine || 'Not set'}</p>
+                  <p className="font-medium">
+                    {restaurantData?.cuisine || "Not set"}
+                  </p>
                 </div>
               </div>
             </div>
@@ -320,12 +330,18 @@ const Dashboard = () => {
             <div>
               <p className="text-sm text-gray-500 mb-1">Physical Address</p>
               {/* ✅ FIX: Use correct API field name */}
-              <p className="text-gray-700">{restaurantData?.restaurantAddress || 'Not set'}</p>
+              <p className="text-gray-700">
+                {restaurantData?.restaurantAddress || "Not set"}
+              </p>
             </div>
             <div>
-              <p className="text-sm text-gray-500 mb-1">Showcase Address (For Menu)</p>
+              <p className="text-sm text-gray-500 mb-1">
+                Showcase Address (For Menu)
+              </p>
               <p className="text-gray-700 font-medium">
-                {restaurantData?.showcaseAddress || restaurantData?.restaurantAddress || 'Not set'}
+                {restaurantData?.showcaseAddress ||
+                  restaurantData?.restaurantAddress ||
+                  "Not set"}
               </p>
             </div>
           </div>
@@ -343,21 +359,28 @@ const Dashboard = () => {
           {/* Operational Details */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="bg-blue-50 p-4 rounded-lg">
-              <p className="text-sm text-blue-600 font-medium">Order Time Range</p>
+              <p className="text-sm text-blue-600 font-medium">
+                Order Time Range
+              </p>
               <p className="text-lg font-semibold text-blue-900">
-                {restaurantData?.minOrderTime || 'N/A'} - {restaurantData?.maxOrderTime || 'N/A'} min
+                {restaurantData?.minOrderTime || "N/A"} -{" "}
+                {restaurantData?.maxOrderTime || "N/A"} min
               </p>
             </div>
             <div className="bg-green-50 p-4 rounded-lg">
               <p className="text-sm text-green-600 font-medium">Staff Count</p>
               <p className="text-lg font-semibold text-green-900">
-                {restaurantData?.staffCount || 'N/A'} members
+                {restaurantData?.staffCount || "N/A"} members
               </p>
             </div>
             <div className="bg-purple-50 p-4 rounded-lg">
-              <p className="text-sm text-purple-600 font-medium">Setup Status</p>
+              <p className="text-sm text-purple-600 font-medium">
+                Setup Status
+              </p>
               <p className="text-lg font-semibold text-purple-900">
-                {restaurantData?.setupCompleted || (user?.isSetup === 1) ? 'Complete' : 'Incomplete'}
+                {restaurantData?.setupCompleted || user?.isSetup === 1
+                  ? "Complete"
+                  : "Incomplete"}
               </p>
             </div>
           </div>
@@ -373,7 +396,9 @@ const Dashboard = () => {
                 </div>
               </div>
               <div className="ml-4">
-                <h3 className="text-sm font-medium text-gray-500">Orders Today</h3>
+                <h3 className="text-sm font-medium text-gray-500">
+                  Orders Today
+                </h3>
                 <p className="text-2xl font-bold text-blue-600">0</p>
               </div>
             </div>
@@ -392,17 +417,22 @@ const Dashboard = () => {
                   <h3 className="text-sm font-medium text-gray-500">Revenue</h3>
                   <button
                     onClick={handleRevenueToggle}
-                    className={`p-1 rounded-full transition-colors ${isRevenueVisible
-                      ? 'text-green-600 hover:bg-green-100'
-                      : 'text-gray-400 hover:bg-gray-100'
-                      }`}
-                    title={isRevenueVisible ? 'Hide Revenue' : 'Show Revenue'}
+                    className={`p-1 rounded-full transition-colors ${
+                      isRevenueVisible
+                        ? "text-green-600 hover:bg-green-100"
+                        : "text-gray-400 hover:bg-gray-100"
+                    }`}
+                    title={isRevenueVisible ? "Hide Revenue" : "Show Revenue"}
                   >
-                    {isRevenueVisible ? '👁️' : '🙈'}
+                    {isRevenueVisible ? "👁️" : "🙈"}
                   </button>
                 </div>
                 <p className="text-2xl font-bold text-green-600">
-                  {isRevenueVisible ? `${revenueData.currency}${revenueData.today.toLocaleString()}` : '••••'}
+                  {isRevenueVisible
+                    ? `${
+                        revenueData.currency
+                      }${revenueData.today.toLocaleString()}`
+                    : "••••"}
                 </p>
               </div>
             </div>
@@ -416,7 +446,9 @@ const Dashboard = () => {
                 </div>
               </div>
               <div className="ml-4">
-                <h3 className="text-sm font-medium text-gray-500">Menu Items</h3>
+                <h3 className="text-sm font-medium text-gray-500">
+                  Menu Items
+                </h3>
                 <p className="text-2xl font-bold text-purple-600">0</p>
               </div>
             </div>
@@ -430,7 +462,9 @@ const Dashboard = () => {
                 </div>
               </div>
               <div className="ml-4">
-                <h3 className="text-sm font-medium text-gray-500">Staff Members</h3>
+                <h3 className="text-sm font-medium text-gray-500">
+                  Staff Members
+                </h3>
                 <p className="text-2xl font-bold text-orange-600">
                   {restaurantData?.staffCount || 0}
                 </p>
@@ -442,9 +476,10 @@ const Dashboard = () => {
         {/* Extended Revenue Details (when visible) */}
         {isRevenueVisible && (
           <div className="bg-white rounded-lg shadow p-6 mb-8 border-l-4 border-green-500">
-
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-bold text-gray-900">Revenue Details</h2>
+              <h2 className="text-xl font-bold text-gray-900">
+                Revenue Details
+              </h2>
               <div className="flex items-center text-sm text-green-600">
                 <span className="w-2 h-2 bg-green-400 rounded-full mr-2"></span>
                 Protected View Active
@@ -453,28 +488,34 @@ const Dashboard = () => {
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="bg-green-50 p-4 rounded-lg">
-                <p className="text-sm text-green-600 font-medium">Today's Revenue</p>
+                <p className="text-sm text-green-600 font-medium">
+                  Today's Revenue
+                </p>
                 <p className="text-2xl font-bold text-green-900">
-                  {revenueData.currency}{revenueData.today.toLocaleString()}
+                  {revenueData.currency}
+                  {revenueData.today.toLocaleString()}
                 </p>
               </div>
               <div className="bg-green-50 p-4 rounded-lg">
                 <p className="text-sm text-green-600 font-medium">This Week</p>
                 <p className="text-2xl font-bold text-green-900">
-                  {revenueData.currency}{revenueData.thisWeek.toLocaleString()}
+                  {revenueData.currency}
+                  {revenueData.thisWeek.toLocaleString()}
                 </p>
               </div>
               <div className="bg-green-50 p-4 rounded-lg">
                 <p className="text-sm text-green-600 font-medium">This Month</p>
                 <p className="text-2xl font-bold text-green-900">
-                  {revenueData.currency}{revenueData.thisMonth.toLocaleString()}
+                  {revenueData.currency}
+                  {revenueData.thisMonth.toLocaleString()}
                 </p>
               </div>
             </div>
 
             <div className="mt-4 text-center">
               <p className="text-xs text-gray-500">
-                🔒 This session will automatically expire in 30 minutes for security
+                🔒 This session will automatically expire in 30 minutes for
+                security
               </p>
             </div>
           </div>
@@ -496,7 +537,11 @@ const Dashboard = () => {
               <span className="mr-2">📊</span>
               Analytics
             </Button>
-            <Button className="w-full" variant="outline" onClick={handleSettingsClick}>
+            <Button
+              className="w-full"
+              variant="outline"
+              onClick={handleSettingsClick}
+            >
               <span className="mr-2">⚙️</span>
               Settings
             </Button>
@@ -509,26 +554,53 @@ const Dashboard = () => {
             <h2 className="text-xl font-bold mb-4">Your Menu Template</h2>
             <div className="flex items-center space-x-4">
               <img
-                src={restaurantData.selectedTemplate.preview_image}
+                src={restaurantData.selectedTemplate.previewImage} // ✅ Updated field name
                 alt={restaurantData.selectedTemplate.name}
                 className="w-32 h-20 object-cover rounded-lg shadow-sm"
               />
               <div className="flex-1">
-                <h3 className="text-lg font-medium text-gray-900">{restaurantData.selectedTemplate.name}</h3>
-                <p className="text-sm text-gray-600 mb-2">{restaurantData.selectedTemplate.description}</p>
+                <h3 className="text-lg font-medium text-gray-900">
+                  {restaurantData.selectedTemplate.name}
+                </h3>
+                <p className="text-sm text-gray-600 mb-2">
+                  {restaurantData.selectedTemplate.description}
+                </p>
                 <div className="flex items-center text-sm text-gray-500">
-                  <span className="mr-4">⭐ {restaurantData.selectedTemplate.rating}</span>
-                  <span className="mr-4">📥 {restaurantData.selectedTemplate.downloads?.toLocaleString()} downloads</span>
-                  <span className={`px-2 py-1 rounded-full text-xs ${restaurantData.selectedTemplate.is_free
-                    ? 'bg-green-100 text-green-700'
-                    : 'bg-blue-100 text-blue-700'
-                    }`}>
-                    {restaurantData.selectedTemplate.is_free ? 'Free' : 'Premium'}
+                  <span className="mr-4">
+                    ⭐ {restaurantData.selectedTemplate.rating}
+                  </span>
+                  <span className="mr-4">
+                    📥{" "}
+                    {restaurantData.selectedTemplate.downloads?.toLocaleString()}{" "}
+                    downloads
+                  </span>
+                  <span
+                    className={`px-2 py-1 rounded-full text-xs ${
+                      restaurantData.selectedTemplate.isFree // ✅ Updated field name
+                        ? "bg-green-100 text-green-700"
+                        : "bg-blue-100 text-blue-700"
+                    }`}
+                  >
+                    {restaurantData.selectedTemplate.isFree
+                      ? "Free"
+                      : "Premium"}{" "}
+                    {/* ✅ Updated field name */}
                   </span>
                 </div>
               </div>
               <div className="flex gap-2">
-                <Button size="sm" variant="outline">Preview Menu</Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() =>
+                    window.open(
+                      restaurantData.selectedTemplate.demoUrl,
+                      "_blank"
+                    )
+                  } // ✅ Updated field name
+                >
+                  Preview Menu
+                </Button>
                 <Button size="sm" variant="outline" onClick={handleEditOpen}>
                   Change Template
                 </Button>
@@ -559,13 +631,14 @@ const Dashboard = () => {
         onConfirm={confirmNavigation}
         onCancel={cancelNavigation}
         title="Leave Dashboard?"
-        message={hasUnsavedChanges
-          ? "Changes you made may not be saved."
-          : "Are you sure you want to leave the dashboard?"
+        message={
+          hasUnsavedChanges
+            ? "Changes you made may not be saved."
+            : "Are you sure you want to leave the dashboard?"
         }
       />
     </div>
-  )
-}
+  );
+};
 
-export default Dashboard
+export default Dashboard;
