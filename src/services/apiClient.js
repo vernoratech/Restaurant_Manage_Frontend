@@ -1,13 +1,13 @@
 // src/services/apiClient.js
-const BASE_URL = 'https://web-production-c660.up.railway.app/vernora-api/api'
+const BASE_URL = 'https://restaurantmenu-five.vercel.app/api';
 
 class ApiClient {
   constructor() {
-    this.baseURL = BASE_URL
+    this.baseURL = BASE_URL;
   }
 
   async request(endpoint, options = {}) {
-    const url = `${this.baseURL}${endpoint}`
+    const url = `${this.baseURL}${endpoint}`;
 
     const config = {
       headers: {
@@ -17,106 +17,124 @@ class ApiClient {
       },
       mode: 'cors',
       ...options,
-    }
+    };
 
-    // ✅ Only add auth token for authenticated endpoints
-    const isAuthEndpoint = endpoint.includes('/auth/login') || endpoint.includes('/auth/register')
-    const token = localStorage.getItem('authToken')
+    const token = localStorage.getItem('authToken');
 
-    if (token && !isAuthEndpoint) {
-      config.headers.Authorization = `Bearer ${token}`
+    // Add Authorization header if token exists and it's not a public endpoint
+    const publicEndpoints = ['/auth/login', '/auth/register'];
+    if (token && !publicEndpoints.includes(endpoint)) {
+      config.headers.Authorization = `Bearer ${token}`;
     }
 
     try {
-      console.log(`🌐 API Request: ${options.method || 'GET'} ${url}`)
-      console.log('📤 Request config:', config)
+      console.log(`🌐 API Request: ${options.method || 'GET'} ${url}`);
+      console.log('📤 Request config:', config);
 
-      const response = await fetch(url, config)
+      const response = await fetch(url, config);
 
-      console.log(`📊 Response Status: ${response.status}`)
+      console.log(`📊 Response Status: ${response.status}`);
 
-      // Check if response has content
-      const contentType = response.headers.get('content-type')
-      let data
-
+      let data;
+      const contentType = response.headers.get('content-type');
       if (contentType && contentType.includes('application/json')) {
-        data = await response.json()
+        data = await response.json();
       } else {
-        const text = await response.text()
-        console.log('📄 Response text:', text)
-
+        const text = await response.text();
+        console.log('📄 Response text:', text);
         try {
-          data = text ? JSON.parse(text) : {}
+          data = text ? JSON.parse(text) : {};
         } catch {
-          data = { message: text || `HTTP ${response.status}` }
+          data = { message: text || `HTTP ${response.status}` };
         }
       }
 
-      console.log(`📊 Parsed Response:`, data)
+      console.log(`📊 Parsed Response:`, data);
 
       if (!response.ok) {
-        let errorMessage = data.message || data.error
+        let errorMessage = data.message || data.error;
 
         switch (response.status) {
-          case 409:
-            errorMessage = 'Email address already registered. Please use a different email or sign in.'
-            break
+          case 401:
+            errorMessage = 'Authentication failed. Please check your credentials.';
+            // Optionally, you could trigger a logout here
+            // Example: window.dispatchEvent(new Event('auth-error'));
+            break;
           case 403:
-            errorMessage = 'Access forbidden. Please check your credentials or contact support.'
-            break
+            errorMessage = 'Access forbidden. You do not have permission to perform this action.';
+            break;
           case 404:
-            errorMessage = 'API endpoint not found.'
-            break
+            errorMessage = 'The requested resource was not found.';
+            break;
+          case 409:
+            errorMessage = 'A conflict occurred. This may be due to duplicate data.';
+            break;
           case 500:
-            errorMessage = 'Server error. Please try again later.'
-            break
+            errorMessage = 'An internal server error occurred. Please try again later.';
+            break;
           default:
-            errorMessage = errorMessage || `HTTP ${response.status}: ${response.statusText}`
+            errorMessage = errorMessage || `An unexpected error occurred: ${response.statusText}`;
         }
-
-        throw new Error(errorMessage)
+        throw new Error(errorMessage);
       }
 
-      return data
+      return data;
     } catch (error) {
-      console.error(`🚨 API Error:`, error)
-
+      console.error(`🚨 API Error:`, error);
       if (error.name === 'TypeError' && error.message.includes('fetch')) {
-        throw new Error('Network error. Please check your internet connection.')
+        throw new Error('Network error. Please check your internet connection and try again.');
       }
-
-      throw error
+      throw error;
     }
   }
 
-  // Authentication endpoints (no auth headers)
+  // --- Auth Endpoints ---
+
   async login(credentials) {
     return this.request('/auth/login', {
       method: 'POST',
       body: JSON.stringify(credentials),
-    })
+    });
   }
 
   async register(userData) {
     return this.request('/auth/register', {
       method: 'POST',
       body: JSON.stringify(userData),
-    })
+    });
   }
 
   async logout() {
     const response = await this.request('/auth/logout', {
       method: 'POST',
-    })
-    localStorage.removeItem('authToken')
-    return response
+    });
+    localStorage.removeItem('authToken');
+    return response;
+  }
+  
+  // ✅ NEW: verifyToken method
+  async verifyToken() {
+    // This endpoint specifically needs the Authorization header, which the request method handles.
+    return this.request('/auth/verify', {
+        method: 'GET',
+    });
   }
 
-  // Authenticated endpoints (will include auth headers)
+
+  // --- User/Profile Endpoints ---
+
   async getProfile() {
-    return this.request('/user/profile')
+    return this.request('/user/profile');
+  }
+
+  // You can add other restaurant-related API calls here
+  async registerRestaurant(restaurantData) {
+    return this.request('/restaurants/register', {
+        method: 'POST',
+        body: JSON.stringify(restaurantData),
+    });
   }
 }
 
-const apiClient = new ApiClient()
-export default apiClient
+const apiClient = new ApiClient();
+export default apiClient;

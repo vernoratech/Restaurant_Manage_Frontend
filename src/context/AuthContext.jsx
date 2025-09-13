@@ -13,26 +13,29 @@ export const AuthProvider = ({ children }) => {
 
   // Check authentication status on app load
   useEffect(() => {
-    const checkAuth = async () => {
-      try {
-        const token = localStorage.getItem('authToken')
-        
-        if (token) {
-          // For now, just assume token is valid
-          // Later you can add API call to verify token
-          setIsAuthenticated(true)
-          setUser({ token }) // Minimal user object
+    const validateSession = async () => {
+      const token = localStorage.getItem('authToken');
+      if (token && token !== 'undefined') {
+        try {
+          const response = await apiClient.verifyToken();
+          if (response.success && response.data.user) {
+            setUser(response.data.user);
+            setIsAuthenticated(true);
+          } else {
+             // Handle cases where token is invalid but API returns success:false
+             throw new Error(response.message || 'Invalid session');
+          }
+        } catch (error) {
+          console.error("Session validation failed:", error.message);
+          localStorage.removeItem('authToken');
+          setIsAuthenticated(false);
         }
-      } catch (error) {
-        console.error('Auth check failed:', error)
-        localStorage.removeItem('authToken')
-      } finally {
-        setIsLoading(false)
       }
-    }
+      setIsLoading(false);
+    };
 
-    checkAuth()
-  }, [])
+    validateSession();
+  }, []);
 
   const login = async (credentials) => {
     try {
@@ -41,28 +44,37 @@ export const AuthProvider = ({ children }) => {
 
       const response = await apiClient.login(credentials)
       
-      // Store token
-      const token = response.token || response.accessToken
-      localStorage.setItem('authToken', token)
-      
-      // Update state
-      setUser(response.user || { email: credentials.email })
-      setIsAuthenticated(true)
-      
-      console.log('✅ Login successful!')
-      
-      // Navigate to restaurant setup
-      setTimeout(() => {
-        navigate('/restaurant-setup', { replace: true })
-      }, 100)
+      // ✅ FIX: Access the token and user from the nested 'data' object.
+      if (response.success && response.data && response.data.token && response.data.user) {
+        const { token, user } = response.data;
 
-      return { success: true, user: response.user }
-      
+        localStorage.setItem('authToken', token)
+        
+        setUser(user)
+        setIsAuthenticated(true)
+        console.log('✅ Login successful!')
+
+        // Navigate based on user's setup status
+        if (user.isSetup) {
+            navigate('/dashboard', { replace: true });
+        } else {
+            navigate('/restaurant-setup', { replace: true });
+        }
+
+        return { success: true, user };
+      } else {
+        // If the structure is wrong or success is false
+        throw new Error(response.message || 'Invalid login response from server.');
+      }
+
     } catch (error) {
       console.error('❌ Login failed:', error)
-      return { 
-        success: false, 
-        error: error.message || 'Login failed. Please try again.' 
+      setUser(null)
+      setIsAuthenticated(false)
+      localStorage.removeItem('authToken')
+      return {
+        success: false,
+        error: error.message || 'Login failed. Please try again.'
       }
     } finally {
       setIsLoading(false)
@@ -75,29 +87,32 @@ export const AuthProvider = ({ children }) => {
       console.log('📝 Starting registration process...')
 
       const response = await apiClient.register(userData)
-      
-      // Store token
-      const token = response.token || response.accessToken
-      localStorage.setItem('authToken', token)
-      
-      // Update state
-      setUser(response.user || { email: userData.email })
-      setIsAuthenticated(true)
-      
-      console.log('✅ Registration successful!')
-      
-      // Navigate to restaurant setup
-      setTimeout(() => {
-        navigate('/restaurant-setup', { replace: true })
-      }, 100)
 
-      return { success: true, user: response.user }
-      
+      // ✅ FIX: Assume the register response has the same structure.
+      if (response.success && response.data && response.data.token && response.data.user) {
+        const { token, user } = response.data;
+
+        localStorage.setItem('authToken', token)
+
+        setUser(user)
+        setIsAuthenticated(true)
+        console.log('✅ Registration successful!')
+
+        navigate('/restaurant-setup', { replace: true });
+
+        return { success: true, user };
+      } else {
+        throw new Error(response.message || 'Invalid registration response from server.');
+      }
+
     } catch (error) {
       console.error('❌ Registration failed:', error)
-      return { 
-        success: false, 
-        error: error.message || 'Registration failed. Please try again.' 
+      setUser(null)
+      setIsAuthenticated(false)
+      localStorage.removeItem('authToken')
+      return {
+        success: false,
+        error: error.message || 'Registration failed. Please try again.'
       }
     } finally {
       setIsLoading(false)
@@ -108,14 +123,26 @@ export const AuthProvider = ({ children }) => {
     try {
       await apiClient.logout()
     } catch (error) {
-      console.error('Logout error:', error)
+      console.error('Server logout failed, proceeding with client-side cleanup:', error)
     } finally {
-      // Always clear local state
       localStorage.removeItem('authToken')
+      localStorage.removeItem('restaurantData'); // Also clear restaurant data
       setUser(null)
       setIsAuthenticated(false)
       navigate('/login', { replace: true })
     }
+  }
+
+  const checkRestaurantSetup = () => {
+    if (user) {
+      return user.isSetup === 1 || user.isSetup === true;
+    }
+    const restaurantData = localStorage.getItem('restaurantData');
+    if (restaurantData) {
+        const parsed = JSON.parse(restaurantData);
+        return parsed.setupCompleted === true;
+    }
+    return false;
   }
 
   const value = {
@@ -125,6 +152,7 @@ export const AuthProvider = ({ children }) => {
     login,
     register,
     logout,
+    checkRestaurantSetup
   }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
