@@ -3,6 +3,7 @@ import React, { createContext, useContext, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import apiClient from "../services/apiClient";
 import { useToast } from "./ToastContext";
+import { restaurantService } from "../services/restaurantService";
 
 const AuthContext = createContext();
 
@@ -38,6 +39,7 @@ export const AuthProvider = ({ children }) => {
         } catch (error) {
           console.error("Session validation failed:", error.message);
           localStorage.removeItem("authToken");
+          localStorage.removeItem("restaurantData");
           setIsAuthenticated(false);
         }
       }
@@ -45,7 +47,7 @@ export const AuthProvider = ({ children }) => {
     };
 
     validateSession();
-  }, []);
+  }, [toast]);
 
   const login = async (credentials) => {
     try {
@@ -67,10 +69,43 @@ export const AuthProvider = ({ children }) => {
         setUser(user);
         setIsAuthenticated(true);
 
+        console.log("response:::.", response);
+        console.log("user>>>>>>", user?.resId);
+
         // Navigate based on user's setup status
-        if (user.isSetup) {
-          navigate("/dashboard", { replace: true });
+        // if (user.isSetup) {
+        //   navigate("/dashboard", { replace: true });
+        // } else {
+        //   navigate("/restaurant-setup", { replace: true });
+        // }
+
+        if (user.isSetup === 1 && user.resId) {
+          console.log("👤 User is setup with restaurant ID:", user.resId);
+
+          // Fetch restaurant data in background
+          try {
+            await fetchAndStoreRestaurantData(user.resId);
+            navigate("/dashboard", { replace: true });
+          } catch (error) {
+            console.error(
+              "Error fetching restaurant data, but proceeding to dashboard"
+            );
+            navigate("/dashboard", { replace: true });
+          }
+        } else if (user.isSetup === 1 && !user.resId) {
+          // User marked as setup but no restaurant ID
+          console.warn("⚠️ User marked as setup but no restaurant ID found");
+          toast.warning(
+            "Restaurant setup incomplete. Please complete your setup.",
+            {
+              title: "Setup Required",
+              duration: 5000,
+            }
+          );
+          navigate("/restaurant-setup", { replace: true });
         } else {
+          // User not setup yet
+          console.log("🏗️ User not setup, redirecting to setup");
           navigate("/restaurant-setup", { replace: true });
         }
 
@@ -92,6 +127,42 @@ export const AuthProvider = ({ children }) => {
       };
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const fetchAndStoreRestaurantData = async (resId) => {
+    try {
+      console.log("🔄 Fetching restaurant data for ID:", resId);
+
+      const restaurantResponse = await restaurantService.getRestaurantById(
+        resId
+      );
+
+      if (restaurantResponse.success && restaurantResponse.data) {
+        const restaurantData = {
+          ...restaurantResponse.data,
+          // ✅ Map API response correctly
+          selectedTemplate: restaurantResponse.data.selectedTempId, // Template is in selectedTempId
+          completedAt: new Date().toISOString(),
+          setupCompleted: true,
+          skipped: false,
+        };
+
+        // ✅ Store in localStorage for offline access
+        localStorage.setItem("restaurantData", JSON.stringify(restaurantData));
+
+        console.log("✅ Restaurant data stored successfully:", restaurantData);
+        return restaurantData;
+      } else {
+        throw new Error("Invalid restaurant data received from API");
+      }
+    } catch (error) {
+      console.error("❌ Failed to fetch restaurant data:", error);
+      toast.error("Failed to load restaurant information", {
+        title: "Loading Error",
+        duration: 4000,
+      });
+      return null;
     }
   };
 
@@ -148,20 +219,44 @@ export const AuthProvider = ({ children }) => {
     } finally {
       localStorage.removeItem("authToken");
       localStorage.removeItem("restaurantData"); // Also clear restaurant data
+      sessionStorage.removeItem("revenueAccess");
       setUser(null);
       setIsAuthenticated(false);
       navigate("/login", { replace: true });
     }
   };
 
+  // const checkRestaurantSetup = () => {
+  //   if (user) {
+  //     return user.isSetup === 1 || user.isSetup === true;
+  //   }
+  //   const restaurantData = localStorage.getItem("restaurantData");
+  //   if (restaurantData) {
+  //     const parsed = JSON.parse(restaurantData);
+  //     return parsed.setupCompleted === true;
+  //   }
+  //   return false;
+  // };
+
   const checkRestaurantSetup = () => {
     if (user) {
-      return user.isSetup === 1 || user.isSetup === true;
+      // Check if user has setup flag AND restaurant ID
+      return (user.isSetup === 1 || user.isSetup === true) && user.resId;
     }
+
+    // Fallback to localStorage check
     const restaurantData = localStorage.getItem("restaurantData");
     if (restaurantData) {
-      const parsed = JSON.parse(restaurantData);
-      return parsed.setupCompleted === true;
+      try {
+        const parsed = JSON.parse(restaurantData);
+        return (
+          parsed.setupCompleted === true &&
+          (parsed._id || parsed.restaurantName)
+        );
+      } catch (error) {
+        console.error("Error parsing restaurant data:", error);
+        return false;
+      }
     }
     return false;
   };
@@ -185,6 +280,7 @@ export const AuthProvider = ({ children }) => {
     logout,
     checkRestaurantSetup,
     updateUserVerification,
+    fetchAndStoreRestaurantData,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

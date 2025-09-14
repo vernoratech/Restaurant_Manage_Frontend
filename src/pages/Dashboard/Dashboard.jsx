@@ -1,44 +1,35 @@
-// src/pages/Dashboard/Dashboard.jsx - Fixed Version
-import React, { useState, useEffect } from "react";
+// src/pages/Dashboard/Dashboard.jsx - COMPLETE OPTIMIZED FILE
+import React, { useState, useEffect, useCallback } from "react";
 import { useAuth } from "../../context/AuthContext.jsx";
 import { useNavigationWarning } from "../../hooks/useNavigationWarning.js";
+import { useNavigate } from "react-router-dom";
 import Button from "../../components/ui/Button.jsx";
 import EditRestaurantModal from "../../components/EditRestaurantModal.jsx";
 import NavigationWarningModal from "../../components/NavigationWarningModal.jsx";
 import RevenueSecurityModal from "../../components/RevenueSecurityModal.jsx";
 import EmailVerificationAlert from "../../components/EmailVerificationAlert.jsx";
 import VerifiedBadge from "../../components/VerifiedBadge.jsx";
-import { useNavigate } from "react-router-dom";
 
 const Dashboard = () => {
-  const { user, logout, checkRestaurantSetup } = useAuth(); // ✅ Added checkRestaurantSetup
-  const [restaurantData, setRestaurantData] = useState(null); // ✅ Changed to null
-  const [isLoading, setIsLoading] = useState(true); // ✅ Added isLoading state
+  // ✅ STEP 1: ALL HOOKS AT THE TOP (NEVER MOVE THESE!)
+  const navigate = useNavigate();
+  const { user, logout, checkRestaurantSetup, fetchAndStoreRestaurantData } =
+    useAuth();
+
+  // ✅ ALL useState HOOKS
+  const [restaurantData, setRestaurantData] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [apiError, setApiError] = useState(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [showWarning, setShowWarning] = useState(true);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [isRevenueVisible, setIsRevenueVisible] = useState(false);
   const [revenueSecurityModal, setRevenueSecurityModal] = useState({
     isOpen: false,
-    mode: "verify", // 'verify', 'setup', 'change'
+    mode: "verify",
   });
 
-
-
-  const navigate = useNavigate();
-
-  // Default logo URL
-  const defaultLogo =
-    "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcT0w8rgpM6Xfx-DljjN2FkZPei5sthUsLH6Pg&s";
-  // Mock revenue data (in production, fetch from API)
-  const revenueData = {
-    today: 2850,
-    thisWeek: 18500,
-    thisMonth: 75200,
-    currency: "₹",
-  };
-
-  // Custom navigation warning with better UX
+  // ✅ CUSTOM HOOKS
   const {
     showModal: showNavWarning,
     handleConfirm: confirmNavigation,
@@ -52,161 +43,234 @@ const Dashboard = () => {
       : "Are you sure you want to leave the dashboard?"
   );
 
+  // ✅ ALL useEffect HOOKS (COMBINED INTO ONE)
   useEffect(() => {
-    // ✅ FIX: Centralized logic to load restaurant data
-    const loadRestaurantData = () => {
-      const savedData = localStorage.getItem("restaurantData");
-      if (savedData) {
-        try {
-          const parsedData = JSON.parse(savedData);
-          setRestaurantData(parsedData);
-        } catch (error) {
-          console.error("Error parsing restaurant data:", error);
-          setRestaurantData({}); // fallback to empty object
+    let isMounted = true; // Prevent state updates if component unmounts
+
+    const loadRestaurantData = async () => {
+      if (!isMounted) return;
+
+      try {
+        setIsLoading(true);
+        setApiError(null);
+
+        // First try localStorage
+        const savedData = localStorage.getItem("restaurantData");
+        if (savedData) {
+          try {
+            const parsedData = JSON.parse(savedData);
+            if (parsedData._id || parsedData.restaurantName) {
+              if (isMounted) {
+                setRestaurantData(parsedData);
+                // Check revenue access
+                const hasRevenueAccess =
+                  sessionStorage.getItem("revenueAccess") === "granted";
+                setIsRevenueVisible(hasRevenueAccess);
+                setIsLoading(false);
+                return;
+              }
+            }
+          } catch (parseError) {
+            console.error("Error parsing saved restaurant data:", parseError);
+          }
         }
-      } else {
-        // If no data, check setup status and redirect if needed
-        if (!checkRestaurantSetup()) {
-          navigate("/restaurant-setup");
+
+        // If no saved data and user has resId, fetch from API
+        if (user?.resId && fetchAndStoreRestaurantData) {
+          console.log("Fetching fresh restaurant data for ID:", user.resId);
+          const freshData = await fetchAndStoreRestaurantData(user.resId);
+
+          if (isMounted) {
+            if (freshData) {
+              setRestaurantData(freshData);
+            } else {
+              throw new Error("Failed to fetch restaurant data");
+            }
+          }
+        }
+        // If no data and user should be setup, redirect
+        else if (!checkRestaurantSetup()) {
+          navigate("/restaurant-setup", { replace: true });
           return;
         }
-        setRestaurantData({}); // Set empty object if no data
+
+        // Check revenue access
+        const hasRevenueAccess =
+          sessionStorage.getItem("revenueAccess") === "granted";
+        if (isMounted && hasRevenueAccess) {
+          setIsRevenueVisible(true);
+        }
+      } catch (error) {
+        console.error("Error loading restaurant data:", error);
+        if (isMounted) {
+          setApiError(error.message);
+          setRestaurantData({}); // Fallback
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
+        }
       }
-      setIsLoading(false);
     };
 
-    loadRestaurantData();
-
-    // Check for session-based revenue access
-    const hasAccess = sessionStorage.getItem("revenueAccess");
-    if (hasAccess === "granted") {
-      setIsRevenueVisible(true);
+    // Only run if we have user data or it's null (initial state)
+    if (user !== undefined) {
+      loadRestaurantData();
     }
-  }, [navigate, checkRestaurantSetup]);
 
-  // ✅ FIX: Loading state handling
-  if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading Dashboard...</p>
-        </div>
-      </div>
-    );
-  }
+    // Cleanup function
+    return () => {
+      isMounted = false;
+    };
+  }, [user, navigate, checkRestaurantSetup, fetchAndStoreRestaurantData]);
 
-  const handleRevenueToggle = () => {
+  // ✅ STEP 2: ALL CALLBACK FUNCTIONS (MEMOIZED FOR PERFORMANCE)
+  const refreshRestaurantData = useCallback(async () => {
+    if (!user?.resId || !fetchAndStoreRestaurantData) return;
+
+    console.log("user",user);
+    
+
+    setIsLoading(true);
+    setApiError(null);
+
+    try {
+      const freshData = await fetchAndStoreRestaurantData(user.resId._id);
+      if (freshData) {
+        setRestaurantData(freshData);
+      }
+    } catch (error) {
+      console.error("Failed to refresh restaurant data:", error);
+      setApiError(error.message);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [user?.resId, fetchAndStoreRestaurantData]);
+
+  const handleRevenueToggle = useCallback(() => {
     if (isRevenueVisible) {
-      // Hide revenue
       setIsRevenueVisible(false);
       sessionStorage.removeItem("revenueAccess");
     } else {
-      // Show revenue - need PIN verification
       const savedPin = localStorage.getItem("revenuePIN");
-      if (!savedPin) {
-        // No PIN set, show setup modal
-        setRevenueSecurityModal({ isOpen: true, mode: "setup" });
-      } else {
-        // PIN exists, show verification modal
-        setRevenueSecurityModal({ isOpen: true, mode: "verify" });
-      }
+      setRevenueSecurityModal({
+        isOpen: true,
+        mode: savedPin ? "verify" : "setup",
+      });
     }
-  };
+  }, [isRevenueVisible]);
 
-  const handleRevenueSecuritySuccess = () => {
+  const handleRevenueSecuritySuccess = useCallback(() => {
     setIsRevenueVisible(true);
     sessionStorage.setItem("revenueAccess", "granted");
 
-    // Auto-hide after 30 minutes for security
+    // Auto-hide after 30 minutes
     setTimeout(() => {
       setIsRevenueVisible(false);
       sessionStorage.removeItem("revenueAccess");
-    }, 30 * 60 * 1000); // 30 minutes
-  };
+    }, 30 * 60 * 1000);
+  }, []);
 
-  const handleRevenueSecurityClose = () => {
+  const handleRevenueSecurityClose = useCallback(() => {
     setRevenueSecurityModal({ isOpen: false, mode: "verify" });
-  };
+  }, []);
 
-  const handleEditClose = () => {
+  const handleEditClose = useCallback(() => {
     setIsEditModalOpen(false);
     setHasUnsavedChanges(false);
 
-    // Reload data after edit
-    const savedData = localStorage.getItem("restaurantData");
-    if (savedData) {
-      try {
+    // Reload data from localStorage
+    try {
+      const savedData = localStorage.getItem("restaurantData");
+      if (savedData) {
         setRestaurantData(JSON.parse(savedData));
-      } catch (error) {
-        console.error("Error reloading restaurant data:", error);
       }
+    } catch (error) {
+      console.error("Error reloading restaurant data:", error);
     }
-  };
+  }, []);
 
-  const handleLogout = () => {
-    // Custom logout confirmation
-    const logoutModal = document.createElement("div");
-    logoutModal.innerHTML = `
-      <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-4" id="logout-modal">
-        <div class="bg-white rounded-xl shadow-2xl w-full max-w-md">
-          <div class="p-6 border-b border-gray-200">
-            <div class="flex items-center space-x-3">
-              <div class="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                <span class="text-blue-600 text-xl">👋</span>
-              </div>
-              <h3 class="text-lg font-semibold text-gray-900">Logout Confirmation</h3>
-            </div>
-          </div>
-          <div class="p-6">
-            <p class="text-gray-600">Are you sure you want to logout from your dashboard?</p>
-          </div>
-          <div class="flex gap-3 p-6 border-t border-gray-200 bg-gray-50 rounded-b-xl">
-            <button id="cancel-logout" class="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50">
-              Cancel
-            </button>
-            <button id="confirm-logout" class="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700">
-              Logout
-            </button>
-          </div>
-        </div>
-      </div>
-    `;
-
-    document.body.appendChild(logoutModal);
-
-    document.getElementById("cancel-logout").onclick = () => {
-      document.body.removeChild(logoutModal);
-    };
-
-    document.getElementById("confirm-logout").onclick = () => {
-      setNavigationAllowed(true);
-      setShowWarning(false);
-      document.body.removeChild(logoutModal);
-      logout();
-    };
-  };
-
-  // Simulate unsaved changes when editing
-  const handleEditOpen = () => {
+  const handleEditOpen = useCallback(() => {
     setIsEditModalOpen(true);
     setHasUnsavedChanges(true);
-  };
+  }, []);
 
-  const handleSettingsClick = () => {
-    // Check if PIN is set, if not, show setup modal first
+  const handleSettingsClick = useCallback(() => {
     const savedPin = localStorage.getItem("revenuePIN");
     if (!savedPin) {
       setRevenueSecurityModal({ isOpen: true, mode: "setup" });
     } else {
       navigate("/settings");
     }
+  }, [navigate]);
+
+  const handleLogout = useCallback(() => {
+    // Simple confirmation and logout
+    if (window.confirm("Are you sure you want to logout?")) {
+      setNavigationAllowed(true);
+      setShowWarning(false);
+      logout();
+    }
+  }, [logout, setNavigationAllowed, setShowWarning]);
+
+  // ✅ STEP 3: CONSTANTS AND DATA
+  const defaultLogo =
+    "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcT0w8rgpM6Xfx-DljjN2FkZPei5sthUsLH6Pg&s";
+
+  const revenueData = {
+    today: 2850,
+    thisWeek: 18500,
+    thisMonth: 75200,
+    currency: "₹",
   };
 
+  // ✅ STEP 4: EARLY RETURNS (AFTER ALL HOOKS!)
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading Dashboard...</p>
+          {user?.resId && (
+            <p className="mt-2 text-sm text-gray-500">
+              Fetching restaurant data...
+            </p>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  if (apiError) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center max-w-md mx-auto p-6">
+          <div className="text-red-600 text-6xl mb-4">⚠️</div>
+          <h2 className="text-xl font-bold text-gray-900 mb-2">
+            Loading Error
+          </h2>
+          <p className="text-gray-600 mb-4">{apiError}</p>
+          <div className="space-x-4">
+            <Button onClick={refreshRestaurantData} className="bg-blue-600">
+              Try Again
+            </Button>
+            <Button
+              onClick={() => navigate("/restaurant-setup")}
+              variant="outline"
+            >
+              Setup Restaurant
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ✅ STEP 5: MAIN JSX RENDER
   return (
     <div className="min-h-screen bg-gray-100">
       {/* Header */}
-      <div className="bg-white shadow sticky top-0">
+      <div className="bg-white shadow sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
           <div className="flex items-center space-x-4">
             {/* Restaurant Logo */}
@@ -241,11 +305,11 @@ const Dashboard = () => {
 
             {/* Restaurant Info Badges */}
             <div className="hidden lg:flex items-center space-x-2">
-              {restaurantData?.selectedTemplate && (
+              {restaurantData?.selectedTempId?.name && (
                 <div className="bg-blue-50 px-3 py-1 rounded-full">
                   <span className="text-sm text-blue-700">Template:</span>
                   <span className="text-sm font-medium text-blue-900 ml-1">
-                    {restaurantData.selectedTemplate.name}
+                    {restaurantData.selectedTempId.name}
                   </span>
                 </div>
               )}
@@ -264,6 +328,9 @@ const Dashboard = () => {
             <Button onClick={handleEditOpen} variant="outline" size="sm">
               ✏️ Edit Restaurant
             </Button>
+            <Button onClick={refreshRestaurantData} variant="outline" size="sm">
+              🔄 Refresh
+            </Button>
             <Button onClick={handleLogout} variant="outline" size="sm">
               Logout
             </Button>
@@ -274,6 +341,7 @@ const Dashboard = () => {
       {/* Dashboard Content */}
       <div className="max-w-7xl mx-auto px-4 py-8">
         <EmailVerificationAlert user={user} />
+
         {/* Restaurant Information Card */}
         <div className="bg-white rounded-lg shadow p-6 mb-8">
           <div className="flex justify-between items-start mb-6">
@@ -285,7 +353,7 @@ const Dashboard = () => {
             </Button>
           </div>
 
-          {/* Logo and Basic Info Section */}
+          {/* Logo and Basic Info */}
           <div className="flex items-start space-x-6 mb-6">
             <div className="flex-shrink-0">
               <img
@@ -296,9 +364,7 @@ const Dashboard = () => {
                   e.target.src = defaultLogo;
                 }}
               />
-              <p className="text-xs text-gray-500 text-center mt-1">
-                Restaurant Logo
-              </p>
+              <p className="text-xs text-gray-500 text-center mt-1">Logo</p>
             </div>
 
             <div className="flex-1">
@@ -309,7 +375,6 @@ const Dashboard = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <p className="text-sm text-gray-500">Contact Number</p>
-                  {/* ✅ FIX: Use correct API field name */}
                   <p className="font-medium">
                     {restaurantData?.restaurantContactNumber || "Not set"}
                   </p>
@@ -328,15 +393,12 @@ const Dashboard = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
             <div>
               <p className="text-sm text-gray-500 mb-1">Physical Address</p>
-              {/* ✅ FIX: Use correct API field name */}
               <p className="text-gray-700">
                 {restaurantData?.restaurantAddress || "Not set"}
               </p>
             </div>
             <div>
-              <p className="text-sm text-gray-500 mb-1">
-                Showcase Address (For Menu)
-              </p>
+              <p className="text-sm text-gray-500 mb-1">Showcase Address</p>
               <p className="text-gray-700 font-medium">
                 {restaurantData?.showcaseAddress ||
                   restaurantData?.restaurantAddress ||
@@ -345,22 +407,10 @@ const Dashboard = () => {
             </div>
           </div>
 
-          {/* Description Section */}
-          {restaurantData?.description && (
-            <div className="mb-6">
-              <p className="text-sm text-gray-500 mb-2">Description</p>
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <p className="text-gray-700">{restaurantData.description}</p>
-              </div>
-            </div>
-          )}
-
           {/* Operational Details */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="bg-blue-50 p-4 rounded-lg">
-              <p className="text-sm text-blue-600 font-medium">
-                Order Time Range
-              </p>
+              <p className="text-sm text-blue-600 font-medium">Order Time</p>
               <p className="text-lg font-semibold text-blue-900">
                 {restaurantData?.minOrderTime || "N/A"} -{" "}
                 {restaurantData?.maxOrderTime || "N/A"} min
@@ -373,9 +423,7 @@ const Dashboard = () => {
               </p>
             </div>
             <div className="bg-purple-50 p-4 rounded-lg">
-              <p className="text-sm text-purple-600 font-medium">
-                Setup Status
-              </p>
+              <p className="text-sm text-purple-600 font-medium">Status</p>
               <p className="text-lg font-semibold text-purple-900">
                 {restaurantData?.setupCompleted || user?.isSetup === 1
                   ? "Complete"
@@ -548,42 +596,53 @@ const Dashboard = () => {
         </div>
 
         {/* Template Preview */}
-        {restaurantData?.selectedTemplate && (
+        {restaurantData?.selectedTempId && (
           <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-xl font-bold mb-4">Your Menu Template</h2>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-bold">Your Menu Template</h2>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={refreshRestaurantData}
+              >
+                🔄 Refresh Data
+              </Button>
+            </div>
+
             <div className="flex items-center space-x-4">
               <img
-                src={restaurantData.selectedTemplate.previewImage} // ✅ Updated field name
-                alt={restaurantData.selectedTemplate.name}
+                src={restaurantData.selectedTempId.previewImage}
+                alt={restaurantData.selectedTempId.name}
                 className="w-32 h-20 object-cover rounded-lg shadow-sm"
+                onError={(e) => {
+                  e.target.src =
+                    "https://via.placeholder.com/400x300?text=No+Preview";
+                }}
               />
               <div className="flex-1">
                 <h3 className="text-lg font-medium text-gray-900">
-                  {restaurantData.selectedTemplate.name}
+                  {restaurantData.selectedTempId.name}
                 </h3>
                 <p className="text-sm text-gray-600 mb-2">
-                  {restaurantData.selectedTemplate.description}
+                  {restaurantData.selectedTempId.description}
                 </p>
                 <div className="flex items-center text-sm text-gray-500">
                   <span className="mr-4">
-                    ⭐ {restaurantData.selectedTemplate.rating}
+                    ⭐ {restaurantData.selectedTempId.rating}
                   </span>
                   <span className="mr-4">
                     📥{" "}
-                    {restaurantData.selectedTemplate.downloads?.toLocaleString()}{" "}
+                    {restaurantData.selectedTempId.downloads?.toLocaleString()}{" "}
                     downloads
                   </span>
                   <span
                     className={`px-2 py-1 rounded-full text-xs ${
-                      restaurantData.selectedTemplate.isFree // ✅ Updated field name
+                      restaurantData.selectedTempId.isFree
                         ? "bg-green-100 text-green-700"
                         : "bg-blue-100 text-blue-700"
                     }`}
                   >
-                    {restaurantData.selectedTemplate.isFree
-                      ? "Free"
-                      : "Premium"}{" "}
-                    {/* ✅ Updated field name */}
+                    {restaurantData.selectedTempId.isFree ? "Free" : "Premium"}
                   </span>
                 </div>
               </div>
@@ -592,15 +651,16 @@ const Dashboard = () => {
                   size="sm"
                   variant="outline"
                   onClick={() =>
-                    window.open(
-                      restaurantData.selectedTemplate.demoUrl,
-                      "_blank"
-                    )
-                  } // ✅ Updated field name
+                    window.open(restaurantData.selectedTempId.demoUrl, "_blank")
+                  }
                 >
                   Preview Menu
                 </Button>
-                <Button size="sm" variant="outline" onClick={handleEditOpen}>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setIsEditModalOpen(true)}
+                >
                   Change Template
                 </Button>
               </div>
@@ -609,14 +669,13 @@ const Dashboard = () => {
         )}
       </div>
 
-      {/* Edit Modal */}
+      {/* Modals */}
       <EditRestaurantModal
         isOpen={isEditModalOpen}
         onClose={handleEditClose}
         currentData={restaurantData}
       />
 
-      {/* Revenue Security Modal */}
       <RevenueSecurityModal
         isOpen={revenueSecurityModal.isOpen}
         mode={revenueSecurityModal.mode}
@@ -624,7 +683,6 @@ const Dashboard = () => {
         onSuccess={handleRevenueSecuritySuccess}
       />
 
-      {/* Navigation Warning Modal */}
       <NavigationWarningModal
         isOpen={showNavWarning}
         onConfirm={confirmNavigation}
