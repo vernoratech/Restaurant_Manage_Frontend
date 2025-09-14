@@ -28,12 +28,7 @@ class ApiClient {
     }
 
     try {
-      console.log(`🌐 API Request: ${options.method || "GET"} ${url}`);
-      console.log("📤 Request config:", config);
-
       const response = await fetch(url, config);
-
-      console.log(`📊 Response Status: ${response.status}`);
 
       let data;
       const contentType = response.headers.get("content-type");
@@ -41,15 +36,12 @@ class ApiClient {
         data = await response.json();
       } else {
         const text = await response.text();
-        console.log("📄 Response text:", text);
         try {
           data = text ? JSON.parse(text) : {};
         } catch {
           data = { message: text || `HTTP ${response.status}` };
         }
       }
-
-      console.log(`📊 Parsed Response:`, data);
 
       if (!response.ok) {
         let errorMessage = data.message || data.error;
@@ -167,7 +159,7 @@ class ApiClient {
 
   async getTemplates(params = {}) {
     const queryString = new URLSearchParams(params).toString();
-    const endpoint = `/restaurants/templates${
+    const endpoint = `/templates/all-template${
       queryString ? `?${queryString}` : ""
     }`;
 

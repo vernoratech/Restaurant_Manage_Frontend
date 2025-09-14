@@ -23,7 +23,7 @@ const Dashboard = () => {
     mode: "verify", // 'verify', 'setup', 'change'
   });
 
-  console.log("user>>", user);
+
 
   const navigate = useNavigate();
 
@@ -59,7 +59,6 @@ const Dashboard = () => {
       if (savedData) {
         try {
           const parsedData = JSON.parse(savedData);
-          console.log("Loaded restaurant data from localStorage:", parsedData);
           setRestaurantData(parsedData);
         } catch (error) {
           console.error("Error parsing restaurant data:", error);
@@ -205,9 +204,9 @@ const Dashboard = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-100">
       {/* Header */}
-      <div className="bg-white shadow">
+      <div className="bg-white shadow sticky top-0">
         <div className="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
           <div className="flex items-center space-x-4">
             {/* Restaurant Logo */}
@@ -223,7 +222,7 @@ const Dashboard = () => {
             </div>
 
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">
+              <h1 className="text-2xl font-bold bg-gradient-to-r from-orange-500 via-indigo-500 to-green-500 text-transparent bg-clip-text">
                 {restaurantData?.restaurantName || "Restaurant"} Dashboard
               </h1>
               <div className="flex items-center space-x-2">

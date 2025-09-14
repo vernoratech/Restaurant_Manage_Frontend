@@ -22,7 +22,7 @@ export const restaurantService = {
       logoUrl: restaurantData.logoUrl || '',
       restaurantEmail: restaurantData.restaurantEmail || '',
       restaurantGpsAddress: restaurantData.restaurantGpsAddress || '',
-      selectedTempId: "1234567890abcdef" // Static for now as requested
+      selectedTempId: restaurantData?.selectedTemplate?._id // Static for now as requested
     }
 
     console.log('Restaurant registration payload:', payload)
@@ -51,35 +51,6 @@ export const restaurantService = {
       throw error
     }
   },
+  
 
-  // Get restaurant details (for future use)
-  async getRestaurant() {
-    const token = localStorage.getItem('authToken')
-    
-    if (!token) {
-      throw new Error('Authentication token is required')
-    }
-
-    try {
-      const response = await fetch(`${API_BASE_URL}/restaurants/profile`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        }
-      })
-
-      const data = await response.json()
-
-      if (!response.ok) {
-        throw new Error(data.message || 'Failed to fetch restaurant details')
-      }
-
-      return data
-
-    } catch (error) {
-      console.error('Get restaurant error:', error)
-      throw error
-    }
-  }
 }
