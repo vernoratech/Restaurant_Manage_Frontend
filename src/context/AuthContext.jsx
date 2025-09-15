@@ -7,11 +7,11 @@ import { restaurantService } from "../services/restaurantService";
 
 const AuthContext = createContext();
 
-export const AuthProvider = ({ children }) => {
+export const AuthProvider = ({ children , navigate }) => {
   const [user, setUser] = useState(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  const navigate = useNavigate();
+  // const navigate = useNavigate();
   const { toast } = useToast();
 
   // Check authentication status on app load
@@ -69,18 +69,7 @@ export const AuthProvider = ({ children }) => {
         setUser(user);
         setIsAuthenticated(true);
 
-        console.log("response:::.", response);
-        console.log("user>>>>>>", user?.resId);
-
-        // Navigate based on user's setup status
-        // if (user.isSetup) {
-        //   navigate("/dashboard", { replace: true });
-        // } else {
-        //   navigate("/restaurant-setup", { replace: true });
-        // }
-
         if (user.isSetup === 1 && user.resId) {
-          console.log("👤 User is setup with restaurant ID:", user.resId);
 
           // Fetch restaurant data in background
           try {
@@ -104,8 +93,7 @@ export const AuthProvider = ({ children }) => {
           );
           navigate("/restaurant-setup", { replace: true });
         } else {
-          // User not setup yet
-          console.log("🏗️ User not setup, redirecting to setup");
+          // User not setup yet;
           navigate("/restaurant-setup", { replace: true });
         }
 
@@ -132,7 +120,6 @@ export const AuthProvider = ({ children }) => {
 
   const fetchAndStoreRestaurantData = async (resId) => {
     try {
-      console.log("🔄 Fetching restaurant data for ID:", resId);
 
       const restaurantResponse = await restaurantService.getRestaurantById(
         resId
@@ -150,8 +137,6 @@ export const AuthProvider = ({ children }) => {
 
         // ✅ Store in localStorage for offline access
         localStorage.setItem("restaurantData", JSON.stringify(restaurantData));
-
-        console.log("✅ Restaurant data stored successfully:", restaurantData);
         return restaurantData;
       } else {
         throw new Error("Invalid restaurant data received from API");
@@ -210,6 +195,7 @@ export const AuthProvider = ({ children }) => {
 
   const logout = async () => {
     try {
+      setIsLoading(true);
       await apiClient.logout();
     } catch (error) {
       console.error(
@@ -222,6 +208,7 @@ export const AuthProvider = ({ children }) => {
       sessionStorage.removeItem("revenueAccess");
       setUser(null);
       setIsAuthenticated(false);
+      setIsLoading(false);
       navigate("/login", { replace: true });
     }
   };
@@ -240,7 +227,8 @@ export const AuthProvider = ({ children }) => {
 
   const checkRestaurantSetup = () => {
     if (user) {
-      // Check if user has setup flag AND restaurant ID
+      // Check if user has setup flag AND restaurant I
+      
       return (user.isSetup === 1 || user.isSetup === true) && user.resId;
     }
 

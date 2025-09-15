@@ -14,13 +14,14 @@ import RestaurantSetup from './pages/RestaurantSetup/Setup.jsx'
 import Dashboard from './pages/Dashboard/Dashboard.jsx'
 import Settings from './pages/Settings/Settings.jsx'
 import EmailVerification from './pages/EmailVerification/EmailVerification.jsx'
+import { AuthWrapper } from './context/AuthWrapper.jsx'
 
 function App() {
   return (
     <BrowserRouter>
       {/* <ThemeProvider> */}
       <ToastProvider>
-        <AuthProvider>
+        <AuthWrapper>
           <div className="min-h-screen bg-gray-50 transition-colors duration-300">
             <Routes>
               {/* Public Home Page */}
@@ -103,7 +104,7 @@ function App() {
             {/* Toast Container */}
             <ToastContainer />
           </div>
-        </AuthProvider>
+        </AuthWrapper>
       </ToastProvider>
       {/* </ThemeProvider> */}
     </BrowserRouter>

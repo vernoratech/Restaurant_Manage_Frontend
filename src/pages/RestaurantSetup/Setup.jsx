@@ -123,17 +123,6 @@ const RestaurantSetup = () => {
   }
 
   const confirmSkip = () => {
-    // Store minimal data to indicate setup was skipped
-    const skippedSetupData = {
-      restaurantName: 'My Restaurant', // Default name
-      setupCompleted: false,
-      skipped: true,
-      skippedAt: new Date().toISOString(),
-      // Store any partial data user entered
-      partialData: formData
-    }
-
-    localStorage.setItem('restaurantData', JSON.stringify(skippedSetupData))
 
     toast.info('Setup skipped. You can complete it later from Settings.', {
       title: 'Setup Skipped',
@@ -176,12 +165,9 @@ const RestaurantSetup = () => {
         selectedTemplate: formData.selectedTemplate
       }
 
-      console.log('Submitting restaurant data:', restaurantPayload)
-
       // Call API
       const response = await restaurantService.registerRestaurant(restaurantPayload)
 
-      console.log('Registration successful:', response)
 
       // Store restaurant data locally
       const restaurantData = {

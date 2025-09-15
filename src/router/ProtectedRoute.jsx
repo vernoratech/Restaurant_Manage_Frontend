@@ -3,7 +3,7 @@ import React from 'react'
 import { Navigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
 
-const ProtectedRoute = ({ children, requireSetup = true }) => {
+const ProtectedRoute = ({ children, requireSetup }) => {
   const { isAuthenticated, isLoading } = useAuth()
   const location = useLocation()
 
@@ -19,7 +19,12 @@ const ProtectedRoute = ({ children, requireSetup = true }) => {
     return <Navigate to="/login" state={{ from: location }} replace />
   }
 
+  console.log("requireSetup>>",requireSetup);
+  
+
   if (requireSetup) {
+  console.log("requireSetup>>>>>>>>>>>>>>",requireSetup);
+
     const restaurantData = localStorage.getItem('restaurantData')
     if (!restaurantData) {
       return <Navigate to="/restaurant-setup" replace />

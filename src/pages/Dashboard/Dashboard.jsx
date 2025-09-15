@@ -77,7 +77,6 @@ const Dashboard = () => {
 
         // If no saved data and user has resId, fetch from API
         if (user?.resId && fetchAndStoreRestaurantData) {
-          console.log("Fetching fresh restaurant data for ID:", user.resId);
           const freshData = await fetchAndStoreRestaurantData(user.resId);
 
           if (isMounted) {
@@ -126,10 +125,7 @@ const Dashboard = () => {
 
   // ✅ STEP 2: ALL CALLBACK FUNCTIONS (MEMOIZED FOR PERFORMANCE)
   const refreshRestaurantData = useCallback(async () => {
-    if (!user?.resId || !fetchAndStoreRestaurantData) return;
-
-    console.log("user",user);
-    
+    if (!user?.resId || !fetchAndStoreRestaurantData) return;    
 
     setIsLoading(true);
     setApiError(null);
