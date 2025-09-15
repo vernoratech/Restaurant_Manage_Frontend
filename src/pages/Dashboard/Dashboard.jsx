@@ -28,6 +28,7 @@ const Dashboard = () => {
     isOpen: false,
     mode: "verify",
   });
+  const [isSkippedUser, setIsSkippedUser] = useState(false)
 
   // ✅ CUSTOM HOOKS
   const {
@@ -117,6 +118,22 @@ const Dashboard = () => {
       loadRestaurantData();
     }
 
+
+    const checkSkipStatus = () => {
+      try {
+        const skipStatus = localStorage.getItem('restaurantSetupStatus')
+        if (skipStatus) {
+          const parsed = JSON.parse(skipStatus)
+          setIsSkippedUser(parsed.skipped === true && parsed.userId === user?.id)
+        }
+      } catch (error) {
+        console.error('Error checking skip status:', error)
+      }
+    }
+
+    checkSkipStatus()
+
+
     // Cleanup function
     return () => {
       isMounted = false;
@@ -125,7 +142,7 @@ const Dashboard = () => {
 
   // ✅ STEP 2: ALL CALLBACK FUNCTIONS (MEMOIZED FOR PERFORMANCE)
   const refreshRestaurantData = useCallback(async () => {
-    if (!user?.resId || !fetchAndStoreRestaurantData) return;    
+    if (!user?.resId || !fetchAndStoreRestaurantData) return;
 
     setIsLoading(true);
     setApiError(null);
@@ -460,11 +477,10 @@ const Dashboard = () => {
                   <h3 className="text-sm font-medium text-gray-500">Revenue</h3>
                   <button
                     onClick={handleRevenueToggle}
-                    className={`p-1 rounded-full transition-colors ${
-                      isRevenueVisible
-                        ? "text-green-600 hover:bg-green-100"
-                        : "text-gray-400 hover:bg-gray-100"
-                    }`}
+                    className={`p-1 rounded-full transition-colors ${isRevenueVisible
+                      ? "text-green-600 hover:bg-green-100"
+                      : "text-gray-400 hover:bg-gray-100"
+                      }`}
                     title={isRevenueVisible ? "Hide Revenue" : "Show Revenue"}
                   >
                     {isRevenueVisible ? "👁️" : "🙈"}
@@ -472,9 +488,8 @@ const Dashboard = () => {
                 </div>
                 <p className="text-2xl font-bold text-green-600">
                   {isRevenueVisible
-                    ? `${
-                        revenueData.currency
-                      }${revenueData.today.toLocaleString()}`
+                    ? `${revenueData.currency
+                    }${revenueData.today.toLocaleString()}`
                     : "••••"}
                 </p>
               </div>
@@ -632,11 +647,10 @@ const Dashboard = () => {
                     downloads
                   </span>
                   <span
-                    className={`px-2 py-1 rounded-full text-xs ${
-                      restaurantData.selectedTempId.isFree
-                        ? "bg-green-100 text-green-700"
-                        : "bg-blue-100 text-blue-700"
-                    }`}
+                    className={`px-2 py-1 rounded-full text-xs ${restaurantData.selectedTempId.isFree
+                      ? "bg-green-100 text-green-700"
+                      : "bg-blue-100 text-blue-700"
+                      }`}
                   >
                     {restaurantData.selectedTempId.isFree ? "Free" : "Premium"}
                   </span>

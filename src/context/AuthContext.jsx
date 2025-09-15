@@ -7,7 +7,7 @@ import { restaurantService } from "../services/restaurantService";
 
 const AuthContext = createContext();
 
-export const AuthProvider = ({ children , navigate }) => {
+export const AuthProvider = ({ children, navigate }) => {
   const [user, setUser] = useState(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -228,7 +228,7 @@ export const AuthProvider = ({ children , navigate }) => {
   const checkRestaurantSetup = () => {
     if (user) {
       // Check if user has setup flag AND restaurant I
-      
+
       return (user.isSetup === 1 || user.isSetup === true) && user.resId;
     }
 
@@ -248,6 +248,26 @@ export const AuthProvider = ({ children , navigate }) => {
     }
     return false;
   };
+
+  const checkSkippedSetup = () => {
+    try {
+      const skipStatus = localStorage.getItem('restaurantSetupStatus')
+      if (skipStatus) {
+        const parsed = JSON.parse(skipStatus)
+        return parsed.skipped === true && parsed.userId === user?.id
+      }
+      return false
+    } catch (error) {
+      console.error('Error parsing skip status:', error)
+      return false
+    }
+  }
+
+  // ✅ NEW: Function to clear skip status (when setup is completed)
+  const clearSkipStatus = () => {
+    localStorage.removeItem('restaurantSetupStatus')
+  }
+
 
   const updateUserVerification = (verifiedData) => {
     const updatedUser = {
@@ -269,6 +289,8 @@ export const AuthProvider = ({ children , navigate }) => {
     checkRestaurantSetup,
     updateUserVerification,
     fetchAndStoreRestaurantData,
+    checkSkippedSetup, // ✅ NEW
+    clearSkipStatus,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
