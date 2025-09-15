@@ -1,379 +1,541 @@
-// src/pages/RestaurantSetup/Setup.jsx - Updated with enhanced fields
+// src/pages/RestaurantSetup/Setup.jsx - Light Mode Only Version
 import React, { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext.jsx'
-import Input from '../../components/ui/Input.jsx'
+import { useToast } from '../../context/ToastContext.jsx'
+import { useNavigate } from 'react-router-dom'
+import { restaurantService } from '../../services/restaurantService.js'
 import Button from '../../components/ui/Button.jsx'
+import Input from '../../components/ui/Input.jsx'
 import TemplateSelector from '../../components/TemplateSelector.jsx'
 
 const RestaurantSetup = () => {
+  const { user } = useAuth()
+  const { toast } = useToast()
+  const navigate = useNavigate()
+  
   const [currentStep, setCurrentStep] = useState(1)
-  const [selectedTemplate, setSelectedTemplate] = useState(null)
+  const [isLoading, setIsLoading] = useState(false)
+  const [errors, setErrors] = useState({})
+  const [showSkipModal, setShowSkipModal] = useState(false)
+  
   const [formData, setFormData] = useState({
     restaurantName: '',
-    logoFile: null,
-    logoPreview: '',
     contactNumber: '',
     address: '',
-    showcaseAddress: '',
+    showcaseAddress: '', // For menu display
+    minOrderTime: '15',
+    maxOrderTime: '40',
+    cuisine: '',
+    staffCount: '1',
+    logoUrl: '',
+    restaurantEmail: user?.email || '',
+    restaurantGpsAddress: '', // GPS coordinates
     description: '',
-    minOrderTime: '',
-    maxOrderTime: '',
-    staffCount: '',
-    cuisine: ''
+    selectedTemplate: null
   })
-  const [errors, setErrors] = useState({})
-  const { user } = useAuth()
-  const navigate = useNavigate()
 
-  // Load existing data if available (for edit mode)
-  useEffect(() => {
-    const savedData = JSON.parse(localStorage.getItem('restaurantData') || '{}')
-    if (savedData && Object.keys(savedData).length > 0) {
-      setFormData(prev => ({
-        ...prev,
-        ...savedData,
-        logoFile: null, // Don't restore file object
-        logoPreview: savedData.logoUrl || ''
-      }))
-      setSelectedTemplate(savedData.selectedTemplate || null)
-    }
+  // Field mapping for API payload
+  const validateStep = (step) => {
+    const stepErrors = {}
 
-    // Pre-fill restaurant name from registration if available
-    const registrationData = JSON.parse(localStorage.getItem('registrationData') || '{}')
-    if (registrationData.restaurantName && !formData.restaurantName) {
-      setFormData(prev => ({
-        ...prev,
-        restaurantName: registrationData.restaurantName
-      }))
-    }
-  }, [])
-
-  // Handle logo file preview
-  useEffect(() => {
-    if (formData.logoFile) {
-      const reader = new FileReader()
-      reader.onloadend = () => {
-        setFormData(prev => ({ ...prev, logoPreview: reader.result }))
+    if (step === 1) {
+      // Basic Information validation
+      if (!formData.restaurantName.trim()) {
+        stepErrors.restaurantName = 'Restaurant name is required'
       }
-      reader.readAsDataURL(formData.logoFile)
+      if (!formData.contactNumber.trim()) {
+        stepErrors.contactNumber = 'Contact number is required'
+      } else if (!/^\d{10}$/.test(formData.contactNumber.replace(/\D/g, ''))) {
+        stepErrors.contactNumber = 'Please enter a valid 10-digit phone number'
+      }
+      if (!formData.address.trim()) {
+        stepErrors.address = 'Restaurant address is required'
+      }
+      if (!formData.cuisine.trim()) {
+        stepErrors.cuisine = 'Cuisine type is required'
+      }
     }
-  }, [formData.logoFile])
 
-  const handleChange = (e) => {
-    const { name, value, files } = e.target
-    
-    if (name === 'logoFile' && files && files[0]) {
-      setFormData(prev => ({ ...prev, logoFile: files[0] }))
-    } else {
-      setFormData(prev => ({ ...prev, [name]: value }))
+    if (step === 2) {
+      // Operational Details validation
+      const minTime = parseInt(formData.minOrderTime)
+      const maxTime = parseInt(formData.maxOrderTime)
+      
+      if (isNaN(minTime) || minTime < 5 || minTime > 120) {
+        stepErrors.minOrderTime = 'Minimum order time must be between 5 and 120 minutes'
+      }
+      if (isNaN(maxTime) || maxTime < 10 || maxTime > 180) {
+        stepErrors.maxOrderTime = 'Maximum order time must be between 10 and 180 minutes'
+      }
+      if (minTime >= maxTime) {
+        stepErrors.maxOrderTime = 'Maximum time must be greater than minimum time'
+      }
+      
+      const staffCount = parseInt(formData.staffCount)
+      if (isNaN(staffCount) || staffCount < 1 || staffCount > 500) {
+        stepErrors.staffCount = 'Staff count must be between 1 and 500'
+      }
     }
-    
-    // Clear error when user starts typing
-    if (errors[name]) {
-      setErrors(prev => ({ ...prev, [name]: '' }))
+
+    if (step === 3) {
+      // Template selection validation
+      if (!formData.selectedTemplate) {
+        stepErrors.selectedTemplate = 'Please select a menu template'
+      }
     }
+
+    setErrors(stepErrors)
+    return Object.keys(stepErrors).length === 0
   }
 
-  const handleTemplateSelect = (template) => {
-    setSelectedTemplate(template)
-    console.log('Selected template:', template)
-  }
+  const handleInputChange = (field, value) => {
+    setFormData(prev => ({
+      ...prev,
+      [field]: value
+    }))
 
-  const validateStep1 = () => {
-    const newErrors = {}
-    
-    if (!formData.restaurantName.trim()) {
-      newErrors.restaurantName = 'Restaurant name is required'
+    // Clear specific field error when user starts typing
+    if (errors[field]) {
+      setErrors(prev => ({
+        ...prev,
+        [field]: undefined
+      }))
     }
-    
-    if (!formData.contactNumber.trim()) {
-      newErrors.contactNumber = 'Contact number is required'
-    } else if (!/^[\+]?[0-9\s\-\(\)]{7,15}$/.test(formData.contactNumber)) {
-      newErrors.contactNumber = 'Please enter a valid contact number'
-    }
-    
-    if (!formData.showcaseAddress.trim()) {
-      newErrors.showcaseAddress = 'Showcase address is required'
-    }
-    
-    if (!formData.minOrderTime.trim()) {
-      newErrors.minOrderTime = 'Minimum order time is required'
-    } else if (parseInt(formData.minOrderTime) < 1) {
-      newErrors.minOrderTime = 'Minimum order time must be at least 1 minute'
-    }
-    
-    if (!formData.maxOrderTime.trim()) {
-      newErrors.maxOrderTime = 'Maximum order time is required'
-    } else if (parseInt(formData.maxOrderTime) <= parseInt(formData.minOrderTime)) {
-      newErrors.maxOrderTime = 'Maximum order time must be greater than minimum order time'
-    }
-    
-    if (!formData.staffCount.trim()) {
-      newErrors.staffCount = 'Number of staff is required'
-    } else if (parseInt(formData.staffCount) < 1) {
-      newErrors.staffCount = 'Number of staff must be at least 1'
-    }
-
-    setErrors(newErrors)
-    return Object.keys(newErrors).length === 0
   }
 
   const handleNext = () => {
-    if (currentStep === 1) {
-      if (validateStep1()) {
-        setCurrentStep(2)
-      }
+    if (validateStep(currentStep)) {
+      setCurrentStep(prev => prev + 1)
+    } else {
+      toast.warning('Please fill in all required fields correctly', {
+        title: 'Validation Error'
+      })
     }
   }
 
-  const handleBack = () => {
-    if (currentStep > 1) {
-      setCurrentStep(currentStep - 1)
-    }
+  const handlePrevious = () => {
+    setCurrentStep(prev => prev - 1)
   }
 
-  const handleSubmit = (e) => {
-    e.preventDefault()
-    
-    const setupData = {
-      ...formData,
-      logoUrl: formData.logoPreview, // Store the base64 preview as logo URL
-      selectedTemplate: selectedTemplate,
-      completedAt: new Date().toISOString()
-    }
-    
-    // Save setup data
-    localStorage.setItem('restaurantData', JSON.stringify(setupData))
-    localStorage.setItem('restaurantSetupCompleted', 'true')
-    
-    console.log('✅ Restaurant setup completed with enhanced data:', setupData)
-    navigate('/dashboard')
-  }
-
+  // Skip functionality
   const handleSkip = () => {
-    // Mark as completed even if skipped
-    localStorage.setItem('restaurantSetupCompleted', 'true')
+    setShowSkipModal(true)
+  }
+
+  const confirmSkip = () => {
+    // Store minimal data to indicate setup was skipped
+    const skippedSetupData = {
+      restaurantName: 'My Restaurant', // Default name
+      setupCompleted: false,
+      skipped: true,
+      skippedAt: new Date().toISOString(),
+      // Store any partial data user entered
+      partialData: formData
+    }
+
+    localStorage.setItem('restaurantData', JSON.stringify(skippedSetupData))
+
+    toast.info('Setup skipped. You can complete it later from Settings.', {
+      title: 'Setup Skipped',
+      duration: 5000
+    })
+
+    setShowSkipModal(false)
     navigate('/dashboard')
   }
 
-  const stepTitles = {
-    1: 'Restaurant Information',
-    2: 'Choose Your Template'
+  const cancelSkip = () => {
+    setShowSkipModal(false)
   }
+
+  const handleSubmit = async () => {
+    if (!validateStep(3)) {
+      toast.error('Please complete all required fields', {
+        title: 'Validation Error'
+      })
+      return
+    }
+
+    setIsLoading(true)
+
+    try {
+      // Prepare data for API
+      const restaurantPayload = {
+        restaurantName: formData.restaurantName,
+        contactNumber: formData.contactNumber,
+        address: formData.address,
+        showcaseAddress: formData.showcaseAddress || formData.address,
+        minOrderTime: formData.minOrderTime,
+        maxOrderTime: formData.maxOrderTime,
+        cuisine: formData.cuisine,
+        staffCount: formData.staffCount,
+        logoUrl: formData.logoUrl,
+        restaurantEmail: formData.restaurantEmail,
+        restaurantGpsAddress: formData.restaurantGpsAddress,
+        description: formData.description,
+        selectedTemplate: formData.selectedTemplate
+      }
+
+      console.log('Submitting restaurant data:', restaurantPayload)
+
+      // Call API
+      const response = await restaurantService.registerRestaurant(restaurantPayload)
+
+      console.log('Registration successful:', response)
+
+      // Store restaurant data locally
+      const restaurantData = {
+        ...response.restaurant,
+        selectedTemplate: formData.selectedTemplate,
+        completedAt: new Date().toISOString(),
+        setupCompleted: true,
+        skipped: false
+      }
+
+      localStorage.setItem('restaurantData', JSON.stringify(restaurantData))
+
+      // Success toast
+      toast.success('Restaurant setup completed successfully!', {
+        title: 'Setup Complete',
+        duration: 4000
+      })
+
+      // Navigate to dashboard
+      setTimeout(() => {
+        navigate('/dashboard')
+      }, 1000)
+
+    } catch (error) {
+      console.error('Restaurant setup error:', error)
+      
+      // Error toast
+      toast.error(error.message || 'Failed to complete restaurant setup. Please try again.', {
+        title: 'Setup Failed',
+        duration: 6000
+      })
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const cuisineOptions = [
+    'Indian', 'Chinese', 'Italian', 'Mexican', 'Thai', 'Japanese',
+    'Mediterranean', 'American', 'French', 'Korean', 'Vietnamese',
+    'Continental', 'Multi-Cuisine', 'Fast Food', 'Other'
+  ]
 
   return (
-    <div className="min-h-screen bg-gray-50 py-12 px-4">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-12 px-4">
       <div className="max-w-4xl mx-auto">
+        {/* Header with Skip Button */}
+        <div className="flex justify-between items-center mb-8">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">Restaurant Setup</h1>
+            <p className="text-gray-600 mt-2">Complete your restaurant profile to get started</p>
+          </div>
+          
+          {/* Skip Button */}
+          <Button 
+            variant="outline" 
+            onClick={handleSkip}
+            className="text-gray-600 border-gray-300 hover:bg-gray-50"
+            disabled={isLoading}
+          >
+            ⏭️ Skip for Now
+          </Button>
+        </div>
+
         {/* Progress Bar */}
         <div className="mb-8">
-          <div className="flex items-center justify-center mb-4">
-            <div className="flex items-center space-x-4">
-              {[1, 2].map((step) => (
-                <div key={step} className="flex items-center">
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
-                    currentStep >= step 
-                      ? 'bg-blue-600 text-white' 
-                      : 'bg-gray-200 text-gray-600'
-                  }`}>
-                    {step}
-                  </div>
-                  {step < 2 && (
-                    <div className={`w-16 h-1 mx-2 ${
-                      currentStep > step ? 'bg-blue-600' : 'bg-gray-200'
-                    }`} />
-                  )}
+          <div className="flex items-center justify-center space-x-4">
+            {[1, 2, 3].map((step) => (
+              <div key={step} className="flex items-center">
+                <div
+                  className={`w-10 h-10 rounded-full flex items-center justify-center font-semibold ${
+                    step <= currentStep
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-gray-300 text-gray-500'
+                  }`}
+                >
+                  {step}
                 </div>
-              ))}
-            </div>
+                {step < 3 && (
+                  <div
+                    className={`w-16 h-1 mx-4 ${
+                      step < currentStep ? 'bg-blue-600' : 'bg-gray-300'
+                    }`}
+                  />
+                )}
+              </div>
+            ))}
           </div>
-          <h1 className="text-center text-2xl font-bold text-gray-900">
-            {stepTitles[currentStep]}
-          </h1>
+          <div className="flex justify-center mt-4">
+            <p className="text-gray-600 text-center">
+              Step {currentStep} of 3: {
+                currentStep === 1 ? 'Basic Information' :
+                currentStep === 2 ? 'Operational Details' :
+                'Template Selection'
+              }
+            </p>
+          </div>
         </div>
 
+        {/* Form Content */}
         <div className="bg-white rounded-lg shadow-lg p-8">
+          {/* Step 1: Basic Information */}
           {currentStep === 1 && (
-            <div>
-              <div className="text-center mb-8">
-                <h2 className="text-xl font-semibold text-gray-900 mb-2">
-                  Welcome to VesnoraTech! 🍽️
-                </h2>
-                <p className="text-gray-600">
-                  Let's set up your restaurant profile with detailed information
-                </p>
-              </div>
-
-              <form className="space-y-6">
-                {/* 1. Restaurant Name */}
+            <div className="space-y-6">
+              <h2 className="text-2xl font-bold text-gray-900 mb-6">Basic Information</h2>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <Input
                   label="Restaurant Name *"
-                  name="restaurantName"
                   value={formData.restaurantName}
-                  onChange={handleChange}
+                  onChange={(e) => handleInputChange('restaurantName', e.target.value)}
                   error={errors.restaurantName}
-                  placeholder="e.g., Mario's Pizza Palace"
-                  required
+                  placeholder="Enter restaurant name"
                 />
-
-                {/* 2. Restaurant Logo */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Restaurant Logo (Optional)
-                  </label>
-                  <input
-                    type="file"
-                    name="logoFile"
-                    accept="image/*"
-                    onChange={handleChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                
+                <Input
+                  label="Contact Number *"
+                  value={formData.contactNumber}
+                  onChange={(e) => handleInputChange('contactNumber', e.target.value)}
+                  error={errors.contactNumber}
+                  placeholder="Enter phone number"
+                />
+                
+                <div className="md:col-span-2">
+                  <Input
+                    label="Restaurant Address *"
+                    value={formData.address}
+                    onChange={(e) => handleInputChange('address', e.target.value)}
+                    error={errors.address}
+                    placeholder="Enter full restaurant address"
                   />
-                  {formData.logoPreview && (
-                    <div className="mt-3">
-                      <img
-                        src={formData.logoPreview}
-                        alt="Logo Preview"
-                        className="h-20 w-20 object-contain border border-gray-200 rounded-lg"
-                      />
-                    </div>
+                </div>
+                
+                <div className="md:col-span-2">
+                  <Input
+                    label="Showcase Address (Optional)"
+                    value={formData.showcaseAddress}
+                    onChange={(e) => handleInputChange('showcaseAddress', e.target.value)}
+                    placeholder="Address to show customers (if different)"
+                    helperText="This address will be displayed on your menu. Leave blank to use restaurant address."
+                  />
+                </div>
+                
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Cuisine Type *
+                  </label>
+                  <select
+                    value={formData.cuisine}
+                    onChange={(e) => handleInputChange('cuisine', e.target.value)}
+                    className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                      errors.cuisine ? 'border-red-300' : 'border-gray-300'
+                    }`}
+                  >
+                    <option value="">Select cuisine type</option>
+                    {cuisineOptions.map((cuisine) => (
+                      <option key={cuisine} value={cuisine}>{cuisine}</option>
+                    ))}
+                  </select>
+                  {errors.cuisine && (
+                    <p className="mt-1 text-sm text-red-600">{errors.cuisine}</p>
                   )}
                 </div>
-
-                {/* 3. Contact Number */}
+                
                 <Input
-                  label="Restaurant Contact Number *"
-                  name="contactNumber"
-                  value={formData.contactNumber}
-                  onChange={handleChange}
-                  error={errors.contactNumber}
-                  placeholder="e.g., +1 (555) 123-4567"
-                  required
+                  label="Restaurant Email"
+                  type="email"
+                  value={formData.restaurantEmail}
+                  onChange={(e) => handleInputChange('restaurantEmail', e.target.value)}
+                  placeholder="restaurant@example.com"
                 />
-
-                {/* 4. Address for GPS (Future) */}
+                
                 <Input
-                  label="Restaurant Address"
-                  name="address"
-                  value={formData.address}
-                  onChange={handleChange}
-                  placeholder="Physical address of your restaurant"
+                  label="Logo URL (Optional)"
+                  value={formData.logoUrl}
+                  onChange={(e) => handleInputChange('logoUrl', e.target.value)}
+                  placeholder="https://example.com/logo.jpg"
                 />
-
-                {/* 5. Showcase Address */}
-                <Input
-                  label="Address for Users (Showcase on Menu) *"
-                  name="showcaseAddress"
-                  value={formData.showcaseAddress}
-                  onChange={handleChange}
-                  error={errors.showcaseAddress}
-                  placeholder="Address that customers will see on your menu"
-                  required
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Description (Optional)
+                </label>
+                <textarea
+                  value={formData.description}
+                  onChange={(e) => handleInputChange('description', e.target.value)}
+                  placeholder="Tell customers about your restaurant..."
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  rows="4"
                 />
-
-                {/* 6. Description */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Restaurant Description (Try with us feature included)
-                  </label>
-                  <textarea
-                    name="description"
-                    value={formData.description}
-                    onChange={handleChange}
-                    placeholder="Tell customers about your restaurant, special features, and what makes you unique..."
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    rows="4"
-                  />
-                </div>
-
-                {/* 7. Order Time Range */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <Input
-                    label="Minimum Order Time (minutes) *"
-                    name="minOrderTime"
-                    type="number"
-                    value={formData.minOrderTime}
-                    onChange={handleChange}
-                    error={errors.minOrderTime}
-                    placeholder="e.g., 20"
-                    min="1"
-                    required
-                  />
-
-                  <Input
-                    label="Maximum Order Time (minutes) *"
-                    name="maxOrderTime"
-                    type="number"
-                    value={formData.maxOrderTime}
-                    onChange={handleChange}
-                    error={errors.maxOrderTime}
-                    placeholder="e.g., 45"
-                    min="1"
-                    required
-                  />
-                </div>
-
-                {/* 8. Staff Count & Cuisine */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <Input
-                    label="Number of Staff *"
-                    name="staffCount"
-                    type="number"
-                    value={formData.staffCount}
-                    onChange={handleChange}
-                    error={errors.staffCount}
-                    placeholder="e.g., 5"
-                    min="1"
-                    required
-                  />
-
-                  <Input
-                    label="Cuisine Type"
-                    name="cuisine"
-                    value={formData.cuisine}
-                    onChange={handleChange}
-                    placeholder="e.g., Italian, Indian, Chinese"
-                  />
-                </div>
-
-                <div className="flex gap-4 pt-4">
-                  <Button type="button" onClick={handleNext} className="flex-1">
-                    Continue to Template Selection
-                  </Button>
-                  <Button type="button" variant="outline" onClick={handleSkip}>
-                    Skip Setup
-                  </Button>
-                </div>
-              </form>
-            </div>
-          )}
-
-          {currentStep === 2 && (
-            <div>
-              <TemplateSelector 
-                onTemplateSelect={handleTemplateSelect}
-                selectedTemplateId={selectedTemplate?.id}
-              />
-
-              <div className="flex gap-4 pt-8 border-t">
-                <Button type="button" variant="outline" onClick={handleBack}>
-                  ← Back
-                </Button>
-                <Button 
-                  type="button" 
-                  onClick={handleSubmit} 
-                  className="flex-1"
-                  disabled={!selectedTemplate}
-                >
-                  Complete Setup {selectedTemplate && `with ${selectedTemplate.name}`}
-                </Button>
-                <Button type="button" variant="outline" onClick={handleSkip}>
-                  Skip for Now
-                </Button>
               </div>
             </div>
           )}
+
+          {/* Step 2: Operational Details */}
+          {currentStep === 2 && (
+            <div className="space-y-6">
+              <h2 className="text-2xl font-bold text-gray-900 mb-6">Operational Details</h2>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <Input
+                  label="Minimum Order Time (minutes) *"
+                  type="number"
+                  value={formData.minOrderTime}
+                  onChange={(e) => handleInputChange('minOrderTime', e.target.value)}
+                  error={errors.minOrderTime}
+                  placeholder="15"
+                  min="5"
+                  max="120"
+                />
+                
+                <Input
+                  label="Maximum Order Time (minutes) *"
+                  type="number"
+                  value={formData.maxOrderTime}
+                  onChange={(e) => handleInputChange('maxOrderTime', e.target.value)}
+                  error={errors.maxOrderTime}
+                  placeholder="40"
+                  min="10"
+                  max="180"
+                />
+                
+                <Input
+                  label="Staff Count *"
+                  type="number"
+                  value={formData.staffCount}
+                  onChange={(e) => handleInputChange('staffCount', e.target.value)}
+                  error={errors.staffCount}
+                  placeholder="5"
+                  min="1"
+                  max="500"
+                />
+                
+                <Input
+                  label="GPS Address (Optional)"
+                  value={formData.restaurantGpsAddress}
+                  onChange={(e) => handleInputChange('restaurantGpsAddress', e.target.value)}
+                  placeholder="18.5204,73.8567"
+                  helperText="Latitude,Longitude format"
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Step 3: Template Selection */}
+          {currentStep === 3 && (
+            <div className="space-y-6">
+              <h2 className="text-2xl font-bold text-gray-900 mb-6">Choose Menu Template</h2>
+              
+              <TemplateSelector
+                selectedTemplate={formData.selectedTemplate}
+                onTemplateSelect={(template) => handleInputChange('selectedTemplate', template)}
+              />
+              
+              {errors.selectedTemplate && (
+                <p className="text-red-600 text-center">{errors.selectedTemplate}</p>
+              )}
+            </div>
+          )}
+
+          {/* Navigation Buttons */}
+          <div className="flex justify-between items-center mt-8">
+            <div className="flex items-center space-x-4">
+              {currentStep > 1 && (
+                <Button variant="outline" onClick={handlePrevious} disabled={isLoading}>
+                  Previous
+                </Button>
+              )}
+              
+              {/* Skip button in navigation area */}
+              <Button 
+                variant="ghost" 
+                onClick={handleSkip}
+                className="text-gray-500 hover:text-gray-700"
+                disabled={isLoading}
+              >
+                Skip Setup
+              </Button>
+            </div>
+            
+            <div>
+              {currentStep < 3 ? (
+                <Button onClick={handleNext} disabled={isLoading}>
+                  Next
+                </Button>
+              ) : (
+                <Button 
+                  onClick={handleSubmit} 
+                  loading={isLoading}
+                  className="bg-green-600 hover:bg-green-700"
+                >
+                  Complete Setup
+                </Button>
+              )}
+            </div>
+          </div>
         </div>
       </div>
+
+      {/* Skip Confirmation Modal */}
+      {showSkipModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-md">
+            <div className="p-6 border-b border-gray-200">
+              <div className="flex items-center space-x-3">
+                <div className="w-10 h-10 bg-yellow-100 rounded-full flex items-center justify-center">
+                  <span className="text-yellow-600 text-xl">⚠️</span>
+                </div>
+                <h3 className="text-lg font-semibold text-gray-900">Skip Restaurant Setup?</h3>
+              </div>
+            </div>
+            
+            <div className="p-6">
+              <p className="text-gray-600 mb-4">
+                You can skip the setup now and complete it later, but you'll have limited functionality until your restaurant is fully configured.
+              </p>
+              
+              <div className="bg-blue-50 p-4 rounded-lg mb-4">
+                <h4 className="font-semibold text-blue-900 mb-2">What you can do:</h4>
+                <ul className="text-sm text-blue-800 space-y-1">
+                  <li>• Access dashboard with basic features</li>
+                  <li>• Complete setup later from Settings</li>
+                  <li>• Explore the platform interface</li>
+                </ul>
+              </div>
+              
+              <div className="bg-orange-50 p-4 rounded-lg">
+                <h4 className="font-semibold text-orange-900 mb-2">What you'll miss:</h4>
+                <ul className="text-sm text-orange-800 space-y-1">
+                  <li>• Menu creation and management</li>
+                  <li>• Order processing features</li>
+                  <li>• Customer-facing menu display</li>
+                </ul>
+              </div>
+            </div>
+            
+            <div className="flex gap-3 p-6 border-t border-gray-200 bg-gray-50 rounded-b-xl">
+              <Button 
+                variant="outline" 
+                onClick={cancelSkip}
+                className="flex-1"
+              >
+                Continue Setup
+              </Button>
+              <Button 
+                onClick={confirmSkip}
+                className="flex-1 bg-yellow-600 hover:bg-yellow-700"
+              >
+                Skip for Now
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
