@@ -52,5 +52,44 @@ export const restaurantService = {
     }
   },
   
+  async getRestaurantById(restaurantId) {
+    const token = localStorage.getItem("authToken");
+    
+    if (!token) {
+      throw new Error("Authentication token is required");
+    }
+
+    if (!restaurantId) {
+      throw new Error("Restaurant ID is required");
+    }
+
+    console.log(`Fetching restaurant data for ID: ${restaurantId}`);
+
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/restaurants/id/${restaurantId}`,
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || "Failed to fetch restaurant details");
+      }
+
+      console.log("Restaurant data fetched successfully:", data);
+      return data;
+    } catch (error) {
+      console.error("Get restaurant by ID error:", error);
+      throw error;
+    }
+  },
+
 
 }

@@ -1,4 +1,4 @@
-// src/pages/RestaurantSetup/Setup.jsx - Light Mode Only Version
+// src/pages/RestaurantSetup/Setup.jsx - UPDATED with proper skip functionality
 import React, { useState, useEffect } from 'react'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
@@ -22,24 +22,32 @@ const RestaurantSetup = () => {
     restaurantName: '',
     contactNumber: '',
     address: '',
-    showcaseAddress: '', // For menu display
+    showcaseAddress: '',
     minOrderTime: '15',
     maxOrderTime: '40',
     cuisine: '',
     staffCount: '1',
     logoUrl: '',
     restaurantEmail: user?.email || '',
-    restaurantGpsAddress: '', // GPS coordinates
+    restaurantGpsAddress: '',
     description: '',
     selectedTemplate: null
   })
 
-  // Field mapping for API payload
+  // ✅ Check if user already has setup completed - redirect to dashboard
+  useEffect(() => {
+    if (user?.isSetup === 1 && user?.resId) {
+      console.log("🎉 User already has restaurant setup, redirecting to dashboard")
+      navigate('/dashboard', { replace: true })
+    }
+  }, [user, navigate])
+
+  // ... existing validation and handler functions remain the same ...
+
   const validateStep = (step) => {
     const stepErrors = {}
 
     if (step === 1) {
-      // Basic Information validation
       if (!formData.restaurantName.trim()) {
         stepErrors.restaurantName = 'Restaurant name is required'
       }
@@ -57,7 +65,6 @@ const RestaurantSetup = () => {
     }
 
     if (step === 2) {
-      // Operational Details validation
       const minTime = parseInt(formData.minOrderTime)
       const maxTime = parseInt(formData.maxOrderTime)
       
@@ -78,7 +85,6 @@ const RestaurantSetup = () => {
     }
 
     if (step === 3) {
-      // Template selection validation
       if (!formData.selectedTemplate) {
         stepErrors.selectedTemplate = 'Please select a menu template'
       }
@@ -94,7 +100,6 @@ const RestaurantSetup = () => {
       [field]: value
     }))
 
-    // Clear specific field error when user starts typing
     if (errors[field]) {
       setErrors(prev => ({
         ...prev,
@@ -117,23 +122,27 @@ const RestaurantSetup = () => {
     setCurrentStep(prev => prev - 1)
   }
 
-  // Skip functionality
+  // ✅ UPDATED: Skip functionality with proper status tracking
   const handleSkip = () => {
     setShowSkipModal(true)
   }
 
   const confirmSkip = () => {
-    // Store minimal data to indicate setup was skipped
+    console.log("🏃‍♂️ User confirmed skip, setting up limited dashboard access")
+    
+    // ✅ Store skip status in localStorage to bypass setup requirements
     const skippedSetupData = {
-      restaurantName: 'My Restaurant', // Default name
+      restaurantName: 'My Restaurant', // Default name for display
       setupCompleted: false,
       skipped: true,
       skippedAt: new Date().toISOString(),
-      // Store any partial data user entered
-      partialData: formData
+      userId: user?.id,
+      userEmail: user?.email,
+      // Store any partial data user might have entered
+      partialFormData: formData
     }
 
-    localStorage.setItem('restaurantData', JSON.stringify(skippedSetupData))
+    localStorage.setItem('restaurantSetupStatus', JSON.stringify(skippedSetupData))
 
     toast.info('Setup skipped. You can complete it later from Settings.', {
       title: 'Setup Skipped',
@@ -141,13 +150,16 @@ const RestaurantSetup = () => {
     })
 
     setShowSkipModal(false)
-    navigate('/dashboard')
+    
+    // ✅ Navigate to dashboard with replace to prevent back navigation
+    navigate('/dashboard', { replace: true })
   }
 
   const cancelSkip = () => {
     setShowSkipModal(false)
   }
 
+  // ✅ UPDATED: Complete setup functionality (unchanged)
   const handleSubmit = async () => {
     if (!validateStep(3)) {
       toast.error('Please complete all required fields', {
@@ -159,7 +171,6 @@ const RestaurantSetup = () => {
     setIsLoading(true)
 
     try {
-      // Prepare data for API
       const restaurantPayload = {
         restaurantName: formData.restaurantName,
         contactNumber: formData.contactNumber,
@@ -176,14 +187,9 @@ const RestaurantSetup = () => {
         selectedTemplate: formData.selectedTemplate
       }
 
-      console.log('Submitting restaurant data:', restaurantPayload)
-
-      // Call API
       const response = await restaurantService.registerRestaurant(restaurantPayload)
 
-      console.log('Registration successful:', response)
-
-      // Store restaurant data locally
+      // ✅ Store completed setup data
       const restaurantData = {
         ...response.restaurant,
         selectedTemplate: formData.selectedTemplate,
@@ -193,22 +199,21 @@ const RestaurantSetup = () => {
       }
 
       localStorage.setItem('restaurantData', JSON.stringify(restaurantData))
+      // ✅ Clear skip status since setup is now complete
+      localStorage.removeItem('restaurantSetupStatus')
 
-      // Success toast
       toast.success('Restaurant setup completed successfully!', {
         title: 'Setup Complete',
         duration: 4000
       })
 
-      // Navigate to dashboard
       setTimeout(() => {
-        navigate('/dashboard')
+        navigate('/dashboard', { replace: true })
       }, 1000)
 
     } catch (error) {
       console.error('Restaurant setup error:', error)
       
-      // Error toast
       toast.error(error.message || 'Failed to complete restaurant setup. Please try again.', {
         title: 'Setup Failed',
         duration: 6000
@@ -234,7 +239,7 @@ const RestaurantSetup = () => {
             <p className="text-gray-600 mt-2">Complete your restaurant profile to get started</p>
           </div>
           
-          {/* Skip Button */}
+          {/* ✅ Enhanced Skip Button */}
           <Button 
             variant="outline" 
             onClick={handleSkip}
@@ -280,7 +285,7 @@ const RestaurantSetup = () => {
           </div>
         </div>
 
-        {/* Form Content */}
+        {/* Form Content - Same as before */}
         <div className="bg-white rounded-lg shadow-lg p-8">
           {/* Step 1: Basic Information */}
           {currentStep === 1 && (
@@ -451,7 +456,6 @@ const RestaurantSetup = () => {
                 </Button>
               )}
               
-              {/* Skip button in navigation area */}
               <Button 
                 variant="ghost" 
                 onClick={handleSkip}
@@ -481,7 +485,7 @@ const RestaurantSetup = () => {
         </div>
       </div>
 
-      {/* Skip Confirmation Modal */}
+      {/* ✅ UPDATED: Enhanced Skip Confirmation Modal */}
       {showSkipModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl shadow-2xl w-full max-w-md">
@@ -496,24 +500,26 @@ const RestaurantSetup = () => {
             
             <div className="p-6">
               <p className="text-gray-600 mb-4">
-                You can skip the setup now and complete it later, but you'll have limited functionality until your restaurant is fully configured.
+                You can skip the setup now and access a limited dashboard. You can complete your restaurant setup anytime from Settings.
               </p>
               
               <div className="bg-blue-50 p-4 rounded-lg mb-4">
-                <h4 className="font-semibold text-blue-900 mb-2">What you can do:</h4>
+                <h4 className="font-semibold text-blue-900 mb-2">✅ What you can do:</h4>
                 <ul className="text-sm text-blue-800 space-y-1">
                   <li>• Access dashboard with basic features</li>
-                  <li>• Complete setup later from Settings</li>
                   <li>• Explore the platform interface</li>
+                  <li>• Complete setup later from Settings</li>
+                  <li>• View tutorials and help documentation</li>
                 </ul>
               </div>
               
               <div className="bg-orange-50 p-4 rounded-lg">
-                <h4 className="font-semibold text-orange-900 mb-2">What you'll miss:</h4>
+                <h4 className="font-semibold text-orange-900 mb-2">⚠️ Limited features until setup:</h4>
                 <ul className="text-sm text-orange-800 space-y-1">
                   <li>• Menu creation and management</li>
                   <li>• Order processing features</li>
                   <li>• Customer-facing menu display</li>
+                  <li>• Analytics and reporting</li>
                 </ul>
               </div>
             </div>
