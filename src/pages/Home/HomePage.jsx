@@ -33,7 +33,7 @@ const HomePage = () => {
             <div className="flex items-center">
               <div className="flex-shrink-0">
                 <h1 className="text-2xl font-bold text-blue-600">VernoraTech</h1>
-                <p className="text-xs text-gray-500">Restaurant Management (DEV)</p> 
+                <p className="text-xs text-gray-500">Restaurant Management (PROD)</p> 
               </div>
             </div>
 
