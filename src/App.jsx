@@ -15,6 +15,7 @@ import Dashboard from './pages/Dashboard/Dashboard.jsx'
 import Settings from './pages/Settings/Settings.jsx'
 import EmailVerification from './pages/EmailVerification/EmailVerification.jsx'
 import { AuthWrapper } from './context/AuthWrapper.jsx'
+import PageNotFound from './pages/PageNotFound/PageNotFound.jsx'
 
 function App() {
   return (
@@ -85,7 +86,7 @@ function App() {
               />
 
               {/* 404 Route */}
-              <Route path="*" element={
+              {/* <Route path="*" element={
                 <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
                   <div className="text-center">
                     <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-4">404</h1>
@@ -98,7 +99,9 @@ function App() {
                     </a>
                   </div>
                 </div>
-              } />
+              } /> */}
+
+              <Route  path='*' element={<PageNotFound/>}/>
             </Routes>
 
             {/* Toast Container */}
