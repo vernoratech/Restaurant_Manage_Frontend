@@ -289,7 +289,7 @@ export const AuthProvider = ({ children, navigate }) => {
     checkRestaurantSetup,
     updateUserVerification,
     fetchAndStoreRestaurantData,
-    checkSkippedSetup, // ✅ NEW
+    checkSkippedSetup, 
     clearSkipStatus,
   };
 

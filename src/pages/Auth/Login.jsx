@@ -89,6 +89,21 @@ const Login = () => {
     return <Loading overlay text="Signing in..." />;
   }
 
+  const handleCopy = async (text) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      toast.success("Copied!", {
+        description: text,
+        duration: 3000,
+      });
+    } catch (err) {
+      toast.error("Failed to copy", {
+        description: err.message,
+        duration: 4000,
+      });
+    }
+  };
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8">
@@ -110,14 +125,52 @@ const Login = () => {
         </div>
 
         {/* Demo Credentials */}
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-          <p className="text-sm text-blue-800">
-            <strong>Demo Credentials:</strong>
-            <br />
-            Email: svish5633@gmail.com
-            <br />
-            Password: Brijesh@123
-          </p>
+        <div className="space-y-4">
+          {/* Restaurant Setuped */}
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <p className="text-sm text-blue-800">
+              <strong>Demo Credentials for Restaurant Setuped:</strong>
+              <br />
+              Email:{" "}
+              <span
+                className="cursor-pointer underline"
+                onClick={() => handleCopy("svish5633@gmail.com")}
+              >
+                svish5633@gmail.com
+              </span>
+              <br />
+              Password:{" "}
+              <span
+                className="cursor-pointer underline"
+                onClick={() => handleCopy("Brijesh@123")}
+              >
+                Brijesh@123
+              </span>
+            </p>
+          </div>
+
+          {/* Non Restaurant Setuped */}
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+            <p className="text-sm text-red-500">
+              <strong>Demo Credentials for Non Restaurant Setuped:</strong>
+              <br />
+              Email:{" "}
+              <span
+                className="cursor-pointer underline"
+                onClick={() => handleCopy("Harsuuuuuuuuuu1@gmail.com")}
+              >
+                Harsuuuuuuuuuu1@gmail.com
+              </span>
+              <br />
+              Password:{" "}
+              <span
+                className="cursor-pointer underline"
+                onClick={() => handleCopy("Harsuuuuuuuuuu1@gmail.com")}
+              >
+                Harsuuuuuuuuuu1@gmail.com
+              </span>
+            </p>
+          </div>
         </div>
 
         {/* Login Form */}
