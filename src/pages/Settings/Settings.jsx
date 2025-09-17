@@ -5,7 +5,7 @@ import { useNavigationWarning } from '../../hooks/useNavigationWarning.js'
 import Button from '../../components/ui/Button.jsx'
 import Input from '../../components/ui/Input.jsx'
 import NavigationWarningModal from '../../components/NavigationWarningModal.jsx'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 
 const Settings = () => {
   const { user, logout } = useAuth()
@@ -14,6 +14,9 @@ const Settings = () => {
   const [isLoading, setIsLoading] = useState(false)
   const [successMessage, setSuccessMessage] = useState('')
   const navigate = useNavigate()
+  const location = useLocation();
+  const { restaurant } = location.state || {};
+
 
   // Load initial data
   const [accountData, setAccountData] = useState({
@@ -24,6 +27,9 @@ const Settings = () => {
     newPassword: '',
     confirmPassword: ''
   })
+
+  // console.log("restaurant",restaurant);
+  
 
   const [restaurantData, setRestaurantData] = useState({
     name: '',
@@ -92,7 +98,7 @@ const Settings = () => {
 
   const handleInputChange = (section, field, value) => {
     setHasUnsavedChanges(true)
-    
+
     if (section === 'account') {
       setAccountData(prev => ({ ...prev, [field]: value }))
     } else if (section === 'restaurant') {
@@ -102,7 +108,7 @@ const Settings = () => {
     } else if (section === 'display') {
       setDisplaySettings(prev => ({ ...prev, [field]: value }))
     }
-    
+
     // Clear success message when editing
     if (successMessage) {
       setSuccessMessage('')
@@ -125,11 +131,11 @@ const Settings = () => {
 
   const saveSettings = async (section) => {
     setIsLoading(true)
-    
+
     try {
       // Simulate API call
       await new Promise(resolve => setTimeout(resolve, 1000))
-      
+
       // Save to localStorage
       if (section === 'account' || section === 'all') {
         localStorage.setItem('userData', JSON.stringify(accountData))
@@ -143,13 +149,13 @@ const Settings = () => {
       if (section === 'display' || section === 'all') {
         localStorage.setItem('displaySettings', JSON.stringify(displaySettings))
       }
-      
+
       setHasUnsavedChanges(false)
       setSuccessMessage('Settings saved successfully!')
-      
+
       // Clear success message after 3 seconds
       setTimeout(() => setSuccessMessage(''), 3000)
-      
+
     } catch (error) {
       console.error('Save failed:', error)
     } finally {
@@ -176,7 +182,7 @@ const Settings = () => {
               <h1 className="text-2xl font-bold text-gray-900">Settings</h1>
               <p className="text-gray-600">Manage your account and restaurant preferences</p>
             </div>
-            
+
             <div className="flex items-center space-x-3">
               {hasUnsavedChanges && (
                 <div className="flex items-center text-orange-600 text-sm">
@@ -184,27 +190,28 @@ const Settings = () => {
                   Unsaved changes
                 </div>
               )}
-              
+
               {successMessage && (
                 <div className="flex items-center text-green-600 text-sm">
                   <span className="mr-2">✅</span>
                   {successMessage}
                 </div>
               )}
-              
-              <Button 
-                onClick={() => saveSettings('all')} 
+
+              <Button
+                onClick={() => saveSettings('all')}
                 loading={isLoading}
-                disabled={!hasUnsavedChanges}
-                className="bg-blue-600 hover:bg-blue-700"
+                // disabled={!hasUnsavedChanges}
+                disabled={true}
+                className=""
               >
                 Save All Changes
               </Button>
-              
-              <Button 
-                variant="outline" 
+
+              <Button
+                variant="outline"
                 onClick={() => window.history.back()}
-                // onClick={() =>navigate("/dashboard")}
+              // onClick={() =>navigate("/dashboard")}
 
               >
                 Back to Dashboard
@@ -224,11 +231,10 @@ const Settings = () => {
                   <button
                     key={tab.id}
                     onClick={() => setActiveTab(tab.id)}
-                    className={`w-full flex items-center px-4 py-3 text-left rounded-lg transition-colors ${
-                      activeTab === tab.id
+                    className={`w-full flex items-center px-4 py-3 text-left rounded-lg transition-colors ${activeTab === tab.id
                         ? 'bg-blue-50 text-blue-700 border-l-4 border-blue-600'
                         : 'text-gray-600 hover:bg-gray-50'
-                    }`}
+                      }`}
                   >
                     <span className="text-xl mr-3">{tab.icon}</span>
                     <span className="font-medium">{tab.label}</span>
@@ -263,7 +269,7 @@ const Settings = () => {
                         <Input
                           label="Email Address"
                           type="email"
-                          value={accountData.email}
+                          value={user.email}
                           onChange={(e) => handleInputChange('account', 'email', e.target.value)}
                           placeholder="your@email.com"
                         />
@@ -306,7 +312,7 @@ const Settings = () => {
                     </div>
 
                     <div className="flex justify-end pt-4">
-                      <Button onClick={() => saveSettings('account')} loading={isLoading}>
+                      <Button onClick={() => saveSettings('account')} loading={isLoading} disabled={user}>
                         Save Account Settings
                       </Button>
                     </div>
@@ -329,20 +335,20 @@ const Settings = () => {
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <Input
                           label="Restaurant Name"
-                          value={restaurantData.name}
+                          value={restaurantData.restaurantName}
                           onChange={(e) => handleInputChange('restaurant', 'name', e.target.value)}
                           placeholder="Restaurant name"
                         />
                         <Input
                           label="Restaurant Email"
                           type="email"
-                          value={restaurantData.email}
+                          value={restaurantData.restaurantEmail}
                           onChange={(e) => handleInputChange('restaurant', 'email', e.target.value)}
                           placeholder="restaurant@email.com"
                         />
                         <Input
                           label="Phone Number"
-                          value={restaurantData.phone}
+                          value={restaurantData.restaurantContactNumber}
                           onChange={(e) => handleInputChange('restaurant', 'phone', e.target.value)}
                           placeholder="Restaurant phone"
                         />
@@ -353,16 +359,16 @@ const Settings = () => {
                           placeholder="https://yourrestaurant.com"
                         />
                       </div>
-                      
+
                       <div className="mt-4">
                         <Input
                           label="Address"
-                          value={restaurantData.address}
+                          value={restaurantData.restaurantAddress}
                           onChange={(e) => handleInputChange('restaurant', 'address', e.target.value)}
                           placeholder="Full restaurant address"
                         />
                       </div>
-                      
+
                       <div className="mt-4">
                         <label className="block text-sm font-medium text-gray-700 mb-2">
                           Description
@@ -397,7 +403,7 @@ const Settings = () => {
                                 <span className="text-sm">Open</span>
                               </label>
                             </div>
-                            
+
                             {!hours.closed && (
                               <div className="flex items-center space-x-2">
                                 <input
@@ -415,7 +421,7 @@ const Settings = () => {
                                 />
                               </div>
                             )}
-                            
+
                             {hours.closed && (
                               <span className="text-red-600 text-sm font-medium">Closed</span>
                             )}
@@ -425,7 +431,7 @@ const Settings = () => {
                     </div>
 
                     <div className="flex justify-end pt-4">
-                      <Button onClick={() => saveSettings('restaurant')} loading={isLoading}>
+                      <Button onClick={() => saveSettings('restaurant')} loading={isLoading} disabled={restaurantData}>
                         Save Restaurant Settings
                       </Button>
                     </div>
@@ -498,7 +504,7 @@ const Settings = () => {
                     </div>
 
                     <div className="flex justify-end pt-4">
-                      <Button onClick={() => saveSettings('notifications')} loading={isLoading}>
+                      <Button onClick={() => saveSettings('notifications')} loading={isLoading} disabled={true}>
                         Save Notification Settings
                       </Button>
                     </div>
@@ -587,7 +593,7 @@ const Settings = () => {
                     </div>
 
                     <div className="flex justify-end pt-4">
-                      <Button onClick={() => saveSettings('display')} loading={isLoading}>
+                      <Button onClick={() => saveSettings('display')} loading={isLoading} disabled={true}>
                         Save Display Settings
                       </Button>
                     </div>
@@ -611,7 +617,7 @@ const Settings = () => {
                           <h3 className="text-lg font-medium text-gray-900">Two-Factor Authentication</h3>
                           <p className="text-sm text-gray-600">Add an extra layer of security to your account</p>
                         </div>
-                        <Button variant="outline">Enable 2FA</Button>
+                        <Button variant="outline" disabled={true}>Enable 2FA</Button>
                       </div>
                     </div>
 
@@ -704,7 +710,7 @@ const Settings = () => {
                                 </p>
                               </div>
                             </div>
-                            <Button variant="outline">
+                            <Button variant="outline" disabled={true}>
                               {payment.status === 'connected' ? 'Configure' : 'Connect'}
                             </Button>
                           </div>
@@ -713,7 +719,7 @@ const Settings = () => {
                     </div>
 
                     {/* API Keys */}
-                    <div className="border-t pt-6">
+                    {/* <div className="border-t pt-6">
                       <h3 className="text-lg font-medium text-gray-900 mb-4">API Keys</h3>
                       <div className="bg-gray-50 p-4 rounded-lg">
                         <div className="flex items-center justify-between mb-2">
@@ -724,7 +730,7 @@ const Settings = () => {
                           vt_sk_test_1234567890abcdef...
                         </code>
                       </div>
-                    </div>
+                    </div> */}
                   </div>
                 </div>
               )}

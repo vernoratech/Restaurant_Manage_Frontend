@@ -234,11 +234,12 @@ const Dashboard = () => {
   const handleSettingsClick = useCallback(() => {
     const savedPin = localStorage.getItem("revenuePIN");
     if (!savedPin) {
-      setRevenueSecurityModal({ isOpen: true, mode: "setup" });
+      setRevenueSecurityModal({ isOpen: true, mode: "setup" ,data: restaurantData});
     } else {
-      navigate("/settings");
+      navigate("/settings", { state: { restaurant: restaurantData } });
+
     }
-  }, [navigate]);
+  }, [navigate,restaurantData]);
 
   const handleLogout = useCallback(() => {
     // Simple confirmation and logout
