@@ -16,6 +16,10 @@ import Settings from './pages/Settings/Settings.jsx'
 import EmailVerification from './pages/EmailVerification/EmailVerification.jsx'
 import { AuthWrapper } from './context/AuthWrapper.jsx'
 import PageNotFound from './pages/PageNotFound/PageNotFound.jsx'
+import MenuItems from './pages/MenuItems/MenuItems.jsx'
+import Orders from './pages/Orders/Orders.jsx'
+import Tables from './pages/Tables/Tables.jsx'
+import Skeleton from './pages/Skeleton/Skeleton.jsx'
 
 function App() {
   return (
@@ -66,6 +70,42 @@ function App() {
                 }
               />
 
+              <Route
+                path="/menu/items"
+                element={
+                  <ProtectedRoute requireSetup={true}>
+                    <MenuItems />
+                  </ProtectedRoute>
+                }
+              />
+              
+              <Route
+                path="/menu/items/new"
+                element={
+                  <ProtectedRoute requireSetup={true}>
+                    <MenuItems isNewItem={true} />
+                  </ProtectedRoute>
+                }
+              />
+
+              <Route
+                path="/orders"
+                element={
+                  <ProtectedRoute requireSetup={true}>
+                    <Orders />
+                  </ProtectedRoute>
+                }
+              />
+
+              <Route
+                path="/tables"
+                element={
+                  <ProtectedRoute requireSetup={true}>
+                    <Tables />
+                  </ProtectedRoute>
+                }
+              />
+
               {/* Settings Route */}
               <Route
                 path="/settings"
@@ -81,6 +121,14 @@ function App() {
                 element={
                   <ProtectedRoute requireSetup={false}>
                     <EmailVerification />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/skeleton"
+                element={
+                  <ProtectedRoute requireSetup={false}>
+                    <Skeleton />
                   </ProtectedRoute>
                 }
               />

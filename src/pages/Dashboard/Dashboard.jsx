@@ -2,8 +2,9 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { useAuth } from "../../context/AuthContext.jsx";
 import { useNavigationWarning } from "../../hooks/useNavigationWarning.js";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import Button from "../../components/ui/Button.jsx";
+import { FiPlus, FiList, FiShoppingBag, FiBarChart2, FiSettings } from "react-icons/fi";
 import EditRestaurantModal from "../../components/EditRestaurantModal.jsx";
 import NavigationWarningModal from "../../components/NavigationWarningModal.jsx";
 import RevenueSecurityModal from "../../components/RevenueSecurityModal.jsx";
@@ -394,6 +395,15 @@ const Dashboard = () => {
 
           <div className="flex items-center space-x-3">
             <Button
+              onClick={() => navigate('/orders')}
+              variant="outline"
+              size="sm"
+              className="flex items-center"
+            >
+              <FiShoppingBag className="mr-2" />
+              Orders
+            </Button>
+            <Button
               onClick={handleEditOpen}
               variant="outline"
               size="sm"
@@ -575,7 +585,7 @@ const Dashboard = () => {
                 </div>
               </div>
               <div className="ml-4">
-                <h3 className="text-sm font-medium text-gray-500">
+                <h3 className="text-sm font-medium text-blue-600">
                   Orders Today
                 </h3>
                 <p className="text-2xl font-bold text-blue-600">
@@ -595,7 +605,7 @@ const Dashboard = () => {
               </div>
               <div className="ml-4 flex-1">
                 <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-medium text-gray-500">Revenue</h3>
+                  <h3 className="text-sm font-medium text-green-600">Revenue</h3>
                   {!isSkippedUser && (
                     <button
                       onClick={handleRevenueToggle}
@@ -629,8 +639,8 @@ const Dashboard = () => {
                 </div>
               </div>
               <div className="ml-4">
-                <h3 className="text-sm font-medium text-gray-500">
-                  Menu Items
+                <h3 className="text-sm font-medium text-purple-600">
+                  Menu Items/Upload Items
                 </h3>
                 <p className="text-2xl font-bold text-purple-600">
                   {isSkippedUser ? "N/A" : "0"}
@@ -647,7 +657,7 @@ const Dashboard = () => {
                 </div>
               </div>
               <div className="ml-4">
-                <h3 className="text-sm font-medium text-gray-500">
+                <h3 className="text-sm font-medium text-orange-600">
                   Staff Members
                 </h3>
                 <p className="text-2xl font-bold text-orange-600">
@@ -710,39 +720,71 @@ const Dashboard = () => {
         <div className="bg-white rounded-lg shadow p-6 mb-8">
           <h2 className="text-xl font-bold mb-4">Quick Actions</h2>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <Button
-              className="w-full"
-              disabled={isSkippedUser}
+            <Link 
+              to="/menu/items/new" 
+              className={`w-full ${isSkippedUser ? 'pointer-events-none' : ''}`}
               title={isSkippedUser ? "Complete setup to unlock this feature" : ""}
             >
-              <span className="mr-2">➕</span>
-              Add Menu Item
-            </Button>
+              <Button
+                className="w-full h-full flex items-center justify-center"
+                disabled={isSkippedUser}
+              >
+                <FiPlus className="mr-2" />
+                Add Menu Item
+              </Button>
+            </Link>
+            
+            <Link 
+              to="/menu/items" 
+              className={`w-full ${isSkippedUser ? 'pointer-events-none' : ''}`}
+              title={isSkippedUser ? "Complete setup to unlock this feature" : ""}
+            >
+              <Button
+                variant="outline"
+                className="w-full h-full flex items-center justify-center"
+                disabled={isSkippedUser}
+              >
+                <FiList className="mr-2" />
+                Manage Menu
+              </Button>
+            </Link>
+            
+            <Link 
+              to="/tables" 
+              className={`w-full ${isSkippedUser ? 'pointer-events-none' : ''}`}
+              title={isSkippedUser ? "Complete setup to unlock this feature" : ""}
+            >
+              <Button
+                variant="outline"
+                className="w-full h-full flex items-center justify-center"
+                disabled={isSkippedUser}
+              >
+                <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
+                </svg>
+                Manage Tables
+              </Button>
+            </Link>
+            
             <Button
-              className="w-full"
               variant="outline"
+              className="w-full flex items-center justify-center"
               disabled={isSkippedUser}
               title={isSkippedUser ? "Complete setup to unlock this feature" : ""}
+              onClick={() => navigate('/orders')}
             >
-              <span className="mr-2">📋</span>
+              <FiShoppingBag className="mr-2" />
               View Orders
             </Button>
+
             <Button
-              className="w-full"
               variant="outline"
+              className="w-full flex items-center justify-center"
               disabled={isSkippedUser}
               title={isSkippedUser ? "Complete setup to unlock this feature" : ""}
             >
-              <span className="mr-2">📊</span>
+              <FiBarChart2 className="mr-2" />
               Analytics
-            </Button>
-            <Button
-              className="w-full"
-              variant="outline"
-              onClick={handleSettingsClick}
-            >
-              <span className="mr-2">⚙️</span>
-              Settings
             </Button>
           </div>
         </div>
