@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import Button from '../../components/ui/Button';
 import { BsQrCodeScan } from 'react-icons/bs';
@@ -10,6 +10,10 @@ import QRCodeModal from '../../components/QRCodeModal';
 const Tables = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const { restaurantData } = location.state || {};
+
+  console.log("restaurantData", restaurantData);
 
   // State for tables and UI
   const [tables, setTables] = useState([]);
@@ -52,7 +56,7 @@ const Tables = () => {
     };
 
     loadTables();
-  }, []);
+  }, [user, restaurantData]);
 
   // Handle input changes
   const handleInputChange = (e) => {
@@ -284,7 +288,7 @@ const Tables = () => {
                       >
                         <FiEdit2 className="h-5 w-5" />
                       </button>
-                     
+
                       <button
                         onClick={() => handleDelete(table.id)}
                         className="text-red-600 hover:text-red-900 cursor-pointer"
@@ -306,8 +310,8 @@ const Tables = () => {
         <div className="fixed z-50 inset-0 overflow-y-auto">
           <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
             {/* Backdrop */}
-            <div 
-              className="fixed inset-0 bg-gray-900/30 backdrop-blur-sm transition-opacity" 
+            <div
+              className="fixed inset-0 bg-gray-900/30 backdrop-blur-sm transition-opacity"
               aria-hidden="true"
               onClick={handleCloseModal}
             ></div>
@@ -456,6 +460,7 @@ const Tables = () => {
         isOpen={isQRModalOpen}
         table={selectedQRTable}
         onClose={handleCloseQRModal}
+        restaurantData={restaurantData}
       />
 
 

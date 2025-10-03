@@ -36,7 +36,35 @@ const STYLE_PRESETS = [
   },
 ];
 
-const QRCodeModal = ({ isOpen, table, onClose }) => {
+const sanitizeBasePath = (path) => {
+  if (!path) return '';
+  return path.startsWith('/') ? path : `/${path}`;
+};
+
+const buildDefaultTableUrl = (table, restaurantData) => {
+  if (!table) return '';
+
+  // const origin = typeof window !== 'undefined' ? window.location.origin : '';
+  const origin = "https://modern-card-wheat.vercel.app/";
+  
+  const basePath = sanitizeBasePath(`table/${table.id}`);
+
+  if (restaurantData?.qrBaseUrl) {
+    return `${restaurantData.qrBaseUrl.replace(/\/$/, '')}${basePath}`;
+  }
+
+  if (restaurantData?.slug) {
+    return `${origin}/restaurant/${restaurantData.slug}${basePath}`;
+  }
+
+  if (restaurantData?._id) {
+    return `${origin}/restaurant/${restaurantData._id}${basePath}`;
+  }
+
+  return `${origin}${basePath}`;
+};
+
+const QRCodeModal = ({ isOpen, table, onClose, restaurantData }) => {
   const [content, setContent] = useState('');
   const [size, setSize] = useState(DEFAULT_SIZE);
   const [foreground, setForeground] = useState(DEFAULT_FOREGROUND);
@@ -60,9 +88,7 @@ const QRCodeModal = ({ isOpen, table, onClose }) => {
       return;
     }
 
-    const origin = typeof window !== 'undefined' ? window.location.origin : '';
-    const basePath = `/table/${table.id}`;
-    setContent(`${origin}${basePath}`);
+    setContent(buildDefaultTableUrl(table, restaurantData));
     setSize(DEFAULT_SIZE);
     setForeground(DEFAULT_FOREGROUND);
     setBackground(DEFAULT_BACKGROUND);
@@ -78,7 +104,34 @@ const QRCodeModal = ({ isOpen, table, onClose }) => {
   }, [isOpen, table]);
 
   const qrPayload = useMemo(() => {
-    if (!table) return content;
+    const sanitizedContent = content.trim();
+    if (!sanitizedContent) return '';
+
+    if (table) {
+      try {
+        const url = new URL(sanitizedContent);
+
+        url.searchParams.set('table', table.tableNumber ?? '');
+        url.searchParams.set('capacity', String(table.capacity ?? ''));
+        url.searchParams.set('status', table.status ?? '');
+
+        if (includeLocation && table.location) {
+          url.searchParams.set('location', table.location);
+        }
+
+        if (includeDescription && table.description) {
+          url.searchParams.set('notes', table.description);
+        }
+
+        return url.toString();
+      } catch (error) {
+        // fall back to plain text payload below
+      }
+    }
+
+    if (!table) {
+      return sanitizedContent;
+    }
 
     const meta = [
       `Table: ${table.tableNumber}`,
@@ -94,10 +147,7 @@ const QRCodeModal = ({ isOpen, table, onClose }) => {
       meta.push(`Notes: ${table.description}`);
     }
 
-    const sanitizedContent = content.trim();
-    const suffix = meta.length ? `\n${meta.join('\n')}` : '';
-
-    return `${sanitizedContent}${suffix}`;
+    return [sanitizedContent, ...meta].join('\n');
   }, [content, includeDescription, includeLocation, table]);
 
   const qrUrl = useMemo(() => {

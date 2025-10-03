@@ -750,7 +750,8 @@ const Dashboard = () => {
             </Link>
             
             <Link 
-              to="/tables" 
+              to={`/tables`} 
+              state={{ restaurantData: restaurantData }}
               className={`w-full ${isSkippedUser ? 'pointer-events-none' : ''}`}
               title={isSkippedUser ? "Complete setup to unlock this feature" : ""}
             >
