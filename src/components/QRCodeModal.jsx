@@ -46,30 +46,62 @@ const sanitizeBasePath = (path) => {
   return path.startsWith('/') ? path : `/${path}`;
 };
 
-const buildDefaultTableUrl = (table, restaurantData) => {
+const resolveRestaurantId = (restaurantIdProp, restaurantData) => {
+  return (
+    restaurantIdProp ||
+    restaurantData?._id ||
+    restaurantData?.restaurantId ||
+    restaurantData?.resId ||
+    restaurantData?.id ||
+    restaurantData?.slug ||
+    ''
+  );
+};
+
+const buildDefaultTableUrl = (table, restaurantData, restaurantIdProp) => {
   if (!table) return '';
 
   // const origin = typeof window !== 'undefined' ? window.location.origin : '';
   const origin = sanitizeOrigin("https://modern-card-wheat.vercel.app/");
-  
-  const basePath = sanitizeBasePath(`table/${table.id}`);
+  const resolvedRestaurantId = resolveRestaurantId(restaurantIdProp, restaurantData);
+
+  const tableIdentifier = table.id || table._id || table.tableId || table.tableNumber;
+  const tablePath = sanitizeBasePath('menu');
+
+  const buildUrlWithParams = (baseUrl) => {
+    try {
+      const url = new URL(baseUrl);
+      if (resolvedRestaurantId) {
+        url.searchParams.set('restaurant_id', resolvedRestaurantId);
+      }
+      if (tableIdentifier) {
+        url.searchParams.set('table_id', tableIdentifier);
+      }
+      return url.toString();
+    } catch (error) {
+      if (resolvedRestaurantId) {
+        const separator = baseUrl.includes('?') ? '&' : '?';
+        let augmentedUrl = `${baseUrl}${separator}restaurant_id=${encodeURIComponent(resolvedRestaurantId)}`;
+        if (tableIdentifier) {
+          augmentedUrl += `&table_id=${encodeURIComponent(tableIdentifier)}`;
+        }
+        return augmentedUrl;
+      }
+      return baseUrl;
+    }
+  };
 
   if (restaurantData?.qrBaseUrl) {
-    return `${restaurantData.qrBaseUrl.replace(/\/$/, '')}${basePath}`;
+    const sanitizedBase = restaurantData.qrBaseUrl.replace(/\/$/, '');
+    const baseUrl = `${sanitizedBase}${sanitizeBasePath('menu')}`;
+    return buildUrlWithParams(baseUrl);
   }
 
-  if (restaurantData?.slug) {
-    return `${origin}/menu/?restaurant_id=${restaurantData.slug}${basePath}`;
-  }
-
-  if (restaurantData?._id) {
-    return `${origin}/menu/?restaurant_id=${restaurantData._id}${basePath}`;
-  }
-
-  return `${origin}${basePath}`;
+  const baseUrl = `${origin}${tablePath}`;
+  return buildUrlWithParams(baseUrl);
 };
 
-const QRCodeModal = ({ isOpen, table, onClose, restaurantData }) => {
+const QRCodeModal = ({ isOpen, table, onClose, restaurantData, restaurantId }) => {
   const [content, setContent] = useState('');
   const [size, setSize] = useState(DEFAULT_SIZE);
   const [foreground, setForeground] = useState(DEFAULT_FOREGROUND);
@@ -93,7 +125,7 @@ const QRCodeModal = ({ isOpen, table, onClose, restaurantData }) => {
       return;
     }
 
-    setContent(buildDefaultTableUrl(table, restaurantData));
+    setContent(buildDefaultTableUrl(table, restaurantData, restaurantId));
     setSize(DEFAULT_SIZE);
     setForeground(DEFAULT_FOREGROUND);
     setBackground(DEFAULT_BACKGROUND);
@@ -106,7 +138,7 @@ const QRCodeModal = ({ isOpen, table, onClose, restaurantData }) => {
     setLogoDataUrl('');
     setLogoFileName('');
     setLogoSize(80);
-  }, [isOpen, table]);
+  }, [isOpen, restaurantData, restaurantId, table]);
 
   const qrPayload = useMemo(() => {
     const sanitizedContent = content.trim();
@@ -298,20 +330,20 @@ const QRCodeModal = ({ isOpen, table, onClose, restaurantData }) => {
       <div className="relative z-10 w-full max-w-4xl">
         <div className="flex max-h-[90vh] flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
           <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
-          <div>
-            <h2 className="text-xl font-semibold text-gray-900">Generate QR Code</h2>
-            <p className="mt-1 text-sm text-gray-500">
-              Create a shareable QR code for `{table.tableNumber}` with custom styling.
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-full p-2 text-gray-400 transition hover:bg-gray-100 hover:text-gray-600 focus:outline-none"
-          >
-            <FiX className="h-5 w-5" aria-hidden="true" />
-            <span className="sr-only">Close</span>
-          </button>
+            <div>
+              <h2 className="text-xl font-semibold text-gray-900">Generate QR Code</h2>
+              <p className="mt-1 text-sm text-gray-500">
+                Create a shareable QR code for `{table.tableNumber}` with custom styling.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-full p-2 text-gray-400 transition hover:bg-gray-100 hover:text-gray-600 focus:outline-none"
+            >
+              <FiX className="h-5 w-5" aria-hidden="true" />
+              <span className="sr-only">Close</span>
+            </button>
           </div>
 
           <div className="flex-1 overflow-y-auto px-6 py-6">
@@ -363,235 +395,233 @@ const QRCodeModal = ({ isOpen, table, onClose, restaurantData }) => {
               </div>
 
               <div className="space-y-5">
-            <div className="space-y-3">
-              <span className="block text-sm font-medium text-gray-700">Design presets</span>
-              <div className="flex flex-wrap gap-2">
-                {STYLE_PRESETS.map((preset) => (
-                  <button
-                    key={preset.id}
-                    type="button"
-                    onClick={() => handlePresetSelect(preset.id)}
-                    className={`flex items-center gap-2 rounded-full border px-3 py-2 text-sm transition ${
-                      selectedPreset === preset.id
-                        ? 'border-blue-500 bg-blue-50 text-blue-700'
-                        : 'border-gray-200 hover:border-blue-200'
-                    }`}
-                  >
-                    <span
-                      className="flex h-5 w-10 overflow-hidden rounded-full"
-                      aria-hidden="true"
-                    >
-                      <span className="flex-1" style={{ backgroundColor: preset.light }} />
-                      <span className="flex-1" style={{ backgroundColor: preset.dark }} />
-                    </span>
-                    {preset.name}
-                  </button>
-                ))}
-                <button
-                  type="button"
-                  onClick={() => setSelectedPreset('custom')}
-                  className={`rounded-full border px-3 py-2 text-sm transition ${
-                    selectedPreset === 'custom'
-                      ? 'border-blue-500 bg-blue-50 text-blue-700'
-                      : 'border-gray-200 hover:border-blue-200'
-                  }`}
-                >
-                  Custom
-                </button>
-              </div>
-            </div>
-
-            <div>
-              <label htmlFor="qr-content" className="block text-sm font-medium text-gray-700">
-                QR content
-              </label>
-              <textarea
-                id="qr-content"
-                rows={3}
-                value={content}
-                onChange={(event) => setContent(event.target.value)}
-                className="mt-1 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
-                placeholder="https://yourrestaurant.com/table/123"
-              />
-              <p className="mt-1 text-xs text-gray-500">
-                Default value points to this table&apos;s page. You can customize the message or URL.
-              </p>
-            </div>
-
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Size ({size}px)</label>
-                <input
-                  type="range"
-                  min="180"
-                  max="480"
-                  step="20"
-                  value={size}
-                  onChange={(event) => setSize(Number(event.target.value))}
-                  className="mt-2 w-full"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Format</label>
-                <select
-                  value={format}
-                  onChange={(event) => setFormat(event.target.value)}
-                  className="mt-2 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
-                >
-                  <option value="png">PNG</option>
-                  <option value="svg" disabled={Boolean(logoDataUrl)}>
-                    SVG {logoDataUrl ? '(disable logo to use)' : ''}
-                  </option>
-                </select>
-              </div>
-            </div>
-
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Foreground</label>
-                <input
-                  type="color"
-                  value={foreground}
-                  onChange={(event) => {
-                    setForeground(event.target.value);
-                    setSelectedPreset('custom');
-                  }}
-                  className="mt-2 h-10 w-full cursor-pointer rounded-lg border border-gray-200 bg-white p-1 shadow-sm"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Background</label>
-                <input
-                  type="color"
-                  value={background}
-                  onChange={(event) => {
-                    setBackground(event.target.value);
-                    setSelectedPreset('custom');
-                  }}
-                  className="mt-2 h-10 w-full cursor-pointer rounded-lg border border-gray-200 bg-white p-1 shadow-sm"
-                />
-              </div>
-            </div>
-
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Margin ({margin}px)</label>
-                <input
-                  type="range"
-                  min="0"
-                  max="10"
-                  step="1"
-                  value={margin}
-                  onChange={(event) => setMargin(Number(event.target.value))}
-                  className="mt-2 w-full"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Error correction</label>
-                <select
-                  value={errorCorrection}
-                  onChange={(event) => setErrorCorrection(event.target.value)}
-                  className="mt-2 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
-                >
-                  <option value="L">Low (7%)</option>
-                  <option value="M">Medium (15%)</option>
-                  <option value="Q">Quartile (25%)</option>
-                  <option value="H">High (30%)</option>
-                </select>
-              </div>
-            </div>
-
-            <div className="space-y-3 rounded-lg border border-gray-200 bg-gray-50 p-4">
-              <div className="flex items-center justify-between">
-                <label className="block text-sm font-medium text-gray-700">Center logo</label>
-                <div className="flex items-center gap-2">
-                  {logoDataUrl ? (
+                <div className="space-y-3">
+                  <span className="block text-sm font-medium text-gray-700">Design presets</span>
+                  <div className="flex flex-wrap gap-2">
+                    {STYLE_PRESETS.map((preset) => (
+                      <button
+                        key={preset.id}
+                        type="button"
+                        onClick={() => handlePresetSelect(preset.id)}
+                        className={`flex items-center gap-2 rounded-full border px-3 py-2 text-sm transition ${selectedPreset === preset.id
+                            ? 'border-blue-500 bg-blue-50 text-blue-700'
+                            : 'border-gray-200 hover:border-blue-200'
+                          }`}
+                      >
+                        <span
+                          className="flex h-5 w-10 overflow-hidden rounded-full"
+                          aria-hidden="true"
+                        >
+                          <span className="flex-1" style={{ backgroundColor: preset.light }} />
+                          <span className="flex-1" style={{ backgroundColor: preset.dark }} />
+                        </span>
+                        {preset.name}
+                      </button>
+                    ))}
                     <button
                       type="button"
-                      onClick={handleRemoveLogo}
-                      className="inline-flex items-center gap-1 text-sm text-red-500 hover:text-red-600"
+                      onClick={() => setSelectedPreset('custom')}
+                      className={`rounded-full border px-3 py-2 text-sm transition ${selectedPreset === 'custom'
+                          ? 'border-blue-500 bg-blue-50 text-blue-700'
+                          : 'border-gray-200 hover:border-blue-200'
+                        }`}
                     >
-                      <FiTrash2 className="h-4 w-4" />
-                      Remove
+                      Custom
                     </button>
-                  ) : null}
-                  <label className="inline-flex cursor-pointer items-center gap-2 rounded-full border border-gray-300 px-3 py-1.5 text-sm text-gray-600 transition hover:border-blue-300 hover:text-blue-600">
-                    <FiUpload className="h-4 w-4" />
-                    Upload logo
-                    <input type="file" accept="image/*" className="hidden" onChange={handleLogoUpload} />
-                  </label>
-                </div>
-              </div>
-
-              {logoDataUrl ? (
-                <div className="flex items-center gap-4">
-                  <div className="flex h-16 w-16 items-center justify-center rounded-lg border border-gray-200 bg-white">
-                    <img src={logoDataUrl} alt={logoFileName || 'Logo preview'} className="max-h-12 max-w-12 object-contain" />
                   </div>
-                  <div className="flex-1 space-y-2 text-sm text-gray-600">
-                    <div className="truncate font-medium text-gray-700">{logoFileName || 'logo'}</div>
-                    <div>
-                      <label className="mb-1 block text-xs uppercase tracking-wide text-gray-500">
-                        Logo size ({logoSize}px)
+                </div>
+
+                <div>
+                  <label htmlFor="qr-content" className="block text-sm font-medium text-gray-700">
+                    QR content
+                  </label>
+                  <textarea
+                    id="qr-content"
+                    rows={3}
+                    value={content}
+                    onChange={(event) => setContent(event.target.value)}
+                    className="mt-1 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                    placeholder="https://yourrestaurant.com/table/123"
+                  />
+                  <p className="mt-1 text-xs text-gray-500">
+                    Default value points to this table&apos;s page. You can customize the message or URL.
+                  </p>
+                </div>
+
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Size ({size}px)</label>
+                    <input
+                      type="range"
+                      min="180"
+                      max="480"
+                      step="20"
+                      value={size}
+                      onChange={(event) => setSize(Number(event.target.value))}
+                      className="mt-2 w-full"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Format</label>
+                    <select
+                      value={format}
+                      onChange={(event) => setFormat(event.target.value)}
+                      className="mt-2 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                    >
+                      <option value="png">PNG</option>
+                      <option value="svg" disabled={Boolean(logoDataUrl)}>
+                        SVG {logoDataUrl ? '(disable logo to use)' : ''}
+                      </option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Foreground</label>
+                    <input
+                      type="color"
+                      value={foreground}
+                      onChange={(event) => {
+                        setForeground(event.target.value);
+                        setSelectedPreset('custom');
+                      }}
+                      className="mt-2 h-10 w-full cursor-pointer rounded-lg border border-gray-200 bg-white p-1 shadow-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Background</label>
+                    <input
+                      type="color"
+                      value={background}
+                      onChange={(event) => {
+                        setBackground(event.target.value);
+                        setSelectedPreset('custom');
+                      }}
+                      className="mt-2 h-10 w-full cursor-pointer rounded-lg border border-gray-200 bg-white p-1 shadow-sm"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Margin ({margin}px)</label>
+                    <input
+                      type="range"
+                      min="0"
+                      max="10"
+                      step="1"
+                      value={margin}
+                      onChange={(event) => setMargin(Number(event.target.value))}
+                      className="mt-2 w-full"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Error correction</label>
+                    <select
+                      value={errorCorrection}
+                      onChange={(event) => setErrorCorrection(event.target.value)}
+                      className="mt-2 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                    >
+                      <option value="L">Low (7%)</option>
+                      <option value="M">Medium (15%)</option>
+                      <option value="Q">Quartile (25%)</option>
+                      <option value="H">High (30%)</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="space-y-3 rounded-lg border border-gray-200 bg-gray-50 p-4">
+                  <div className="flex items-center justify-between">
+                    <label className="block text-sm font-medium text-gray-700">Center logo</label>
+                    <div className="flex items-center gap-2">
+                      {logoDataUrl ? (
+                        <button
+                          type="button"
+                          onClick={handleRemoveLogo}
+                          className="inline-flex items-center gap-1 text-sm text-red-500 hover:text-red-600"
+                        >
+                          <FiTrash2 className="h-4 w-4" />
+                          Remove
+                        </button>
+                      ) : null}
+                      <label className="inline-flex cursor-pointer items-center gap-2 rounded-full border border-gray-300 px-3 py-1.5 text-sm text-gray-600 transition hover:border-blue-300 hover:text-blue-600">
+                        <FiUpload className="h-4 w-4" />
+                        Upload logo
+                        <input type="file" accept="image/*" className="hidden" onChange={handleLogoUpload} />
                       </label>
-                      <input
-                        type="range"
-                        min="40"
-                        max="160"
-                        step="10"
-                        value={logoSize}
-                        onChange={(event) => setLogoSize(Number(event.target.value))}
-                        className="w-full"
-                      />
                     </div>
                   </div>
-                </div>
-              ) : (
-                <p className="text-sm text-gray-500">
-                  Add your restaurant logo to brand your QR code. PNG with transparent background works best.
-                </p>
-              )}
-            </div>
 
-            <div className="space-y-3 rounded-lg border border-gray-200 bg-gray-50 p-4">
-              <label className="block text-sm font-medium text-gray-700">Metadata</label>
-              <div className="space-y-2 text-sm text-gray-600">
-                <label className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={includeLocation}
-                    onChange={(event) => setIncludeLocation(event.target.checked)}
-                    className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                  />
-                  Include location
-                </label>
-                <label className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={includeDescription}
-                    onChange={(event) => setIncludeDescription(event.target.checked)}
-                    className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                  />
-                  Include description/notes
-                </label>
+                  {logoDataUrl ? (
+                    <div className="flex items-center gap-4">
+                      <div className="flex h-16 w-16 items-center justify-center rounded-lg border border-gray-200 bg-white">
+                        <img src={logoDataUrl} alt={logoFileName || 'Logo preview'} className="max-h-12 max-w-12 object-contain" />
+                      </div>
+                      <div className="flex-1 space-y-2 text-sm text-gray-600">
+                        <div className="truncate font-medium text-gray-700">{logoFileName || 'logo'}</div>
+                        <div>
+                          <label className="mb-1 block text-xs uppercase tracking-wide text-gray-500">
+                            Logo size ({logoSize}px)
+                          </label>
+                          <input
+                            type="range"
+                            min="40"
+                            max="160"
+                            step="10"
+                            value={logoSize}
+                            onChange={(event) => setLogoSize(Number(event.target.value))}
+                            className="w-full"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-gray-500">
+                      Add your restaurant logo to brand your QR code. PNG with transparent background works best.
+                    </p>
+                  )}
+                </div>
+
+                <div className="space-y-3 rounded-lg border border-gray-200 bg-gray-50 p-4">
+                  <label className="block text-sm font-medium text-gray-700">Metadata</label>
+                  <div className="space-y-2 text-sm text-gray-600">
+                    <label className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={includeLocation}
+                        onChange={(event) => setIncludeLocation(event.target.checked)}
+                        className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                      />
+                      Include location
+                    </label>
+                    <label className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={includeDescription}
+                        onChange={(event) => setIncludeDescription(event.target.checked)}
+                        className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                      />
+                      Include description/notes
+                    </label>
+                  </div>
+                </div>
               </div>
             </div>
-            </div>
           </div>
-        </div>
 
-        <div className="flex flex-col gap-2 border-t border-gray-100 bg-gray-50 px-6 py-4 text-xs text-gray-500 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            Link generated via quickchart.io. Customize content to match your ordering or check-in flow.
+          <div className="flex flex-col gap-2 border-t border-gray-100 bg-gray-50 px-6 py-4 text-xs text-gray-500 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              Link generated via quickchart.io. Customize content to match your ordering or check-in flow.
+            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              className="text-blue-600 hover:text-blue-700"
+            >
+              Close
+            </button>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="text-blue-600 hover:text-blue-700"
-          >
-            Close
-          </button>
-        </div>
         </div>
       </div>
     </div>

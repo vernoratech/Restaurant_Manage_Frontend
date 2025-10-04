@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import Button from '../../components/ui/Button';
@@ -6,6 +6,7 @@ import { BsQrCodeScan } from 'react-icons/bs';
 import { FiPlus, FiEdit2, FiTrash2, FiArrowLeft, FiSave, FiX } from 'react-icons/fi';
 import { toast } from 'react-toastify';
 import QRCodeModal from '../../components/QRCodeModal';
+import tableService from '../../services/tableService';
 
 const Tables = () => {
   const { user } = useAuth();
@@ -27,48 +28,100 @@ const Tables = () => {
     capacity: 2,
     status: 'available', // available, occupied, reserved, out-of-service
     location: '',
-    description: ''
+    description: '',
+    reservedStatus: false,
+    isActive: true,
   });
+  const [isSaving, setIsSaving] = useState(false);
+  const [deletingId, setDeletingId] = useState(null);
+
+  const getTableId = (table) => {
+    if (!table) return null;
+
+    const candidate =
+      table.id ??
+      table._id ??
+      table.tableId ??
+      table.table_id ??
+      table.raw?.id ??
+      table.raw?._id ??
+      table.raw?.tableId ??
+      table.raw?.table_id ??
+      null;
+
+    if (candidate === undefined || candidate === null) {
+      return null;
+    }
+
+    return String(candidate);
+  };
+
+  const restaurantId = useMemo(() => {
+    if (restaurantData?._id) return restaurantData._id;
+    if (restaurantData?.id) return restaurantData.id;
+    if (restaurantData?.restaurantId) return restaurantData.restaurantId;
+    if (restaurantData?.resId) return restaurantData.resId;
+    if (user?.resId) return user.resId;
+
+    if (typeof window !== 'undefined') {
+      try {
+        const stored = localStorage.getItem('restaurantData');
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          return parsed?._id || parsed?.id || parsed?.restaurantId || parsed?.resId;
+        }
+      } catch (error) {
+        console.error('Failed to parse stored restaurant data:', error);
+      }
+    }
+
+    return null;
+  }, [restaurantData, user]);
 
   // Load tables
   useEffect(() => {
+    let isMounted = true;
+
     const loadTables = async () => {
+      if (!restaurantId) {
+        setTables([]);
+        setIsLoading(false);
+        return;
+      }
+
       try {
         setIsLoading(true);
-        // In a real app, you would fetch tables from your API
-        // const response = await fetch(`/api/restaurants/${user.resId}/tables`);
-        // const data = await response.json();
-
-        // Mock data for demonstration
-        const mockTables = [
-          { id: '1', tableNumber: 'T-01', capacity: 4, status: 'available', location: 'Main Hall', description: 'Window view' },
-          { id: '2', tableNumber: 'T-02', capacity: 6, status: 'occupied', location: 'Main Hall', description: 'Center table' },
-          { id: '3', tableNumber: 'T-03', capacity: 2, status: 'reserved', location: 'Terrace', description: 'Outdoor seating' },
-        ];
-
-        setTables(mockTables);
+        const { tables: fetchedTables } = await tableService.getTables(restaurantId);
+        if (!isMounted) return;
+        setTables(fetchedTables);
       } catch (error) {
         console.error('Error loading tables:', error);
-        toast.error('Failed to load tables');
+        toast.error(error.message || 'Failed to load tables');
       } finally {
-        setIsLoading(false);
+        if (isMounted) {
+          setIsLoading(false);
+        }
       }
     };
 
     loadTables();
-  }, [user, restaurantData]);
+
+    return () => {
+      isMounted = false;
+    };
+  }, [restaurantId]);
 
   // Handle input changes
   const handleInputChange = (e) => {
-    const { name, value } = e.target;
+    const { name, value, type, checked } = e.target;
     setFormData(prev => ({
       ...prev,
-      [name]: value
+      [name]: type === 'checkbox' ? checked : value
     }));
   };
 
   // Handle form submission
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
     if (!formData.tableNumber) {
@@ -76,48 +129,89 @@ const Tables = () => {
       return;
     }
 
+    if (!restaurantId) {
+      toast.error('Restaurant information is missing. Please try reloading the page.');
+      return;
+    }
+
+    const payload = {
+      tableNumber: formData.tableNumber,
+      capacity: Number(formData.capacity) || 0,
+      status: formData.status,
+      location: formData.location,
+      description: formData.description,
+      reservedStatus: Boolean(formData.reservedStatus),
+      isActive: Boolean(formData.isActive),
+    };
+
+    setIsSaving(true);
+
     try {
       if (isEditing) {
-        // Update existing table
+        const { table: updated } = await tableService.updateTable(restaurantId, isEditing, payload);
         setTables(prevTables =>
-          prevTables.map(table =>
-            table.id === isEditing ? { ...formData, id: isEditing } : table
-          )
+          prevTables.map(table => {
+            if (getTableId(table) !== isEditing) return table;
+            const merged = updated || { ...table, ...payload, id: isEditing };
+            return {
+              ...table,
+              ...merged,
+              id: getTableId(merged) || isEditing,
+            };
+          })
         );
         toast.success('Table updated successfully');
       } else {
-        // Add new table
-        const newTable = {
-          ...formData,
-          id: Date.now().toString()
-        };
-        setTables(prevTables => [...prevTables, newTable]);
+        const { table: created } = await tableService.createTable(restaurantId, payload);
+        const fallbackId = Date.now().toString();
+        const newTable = created
+          ? {
+              ...created,
+              id: getTableId(created) || fallbackId,
+            }
+          : {
+              id: fallbackId,
+              ...payload,
+            };
+        setTables(prevTables => [newTable, ...prevTables]);
         toast.success('Table added successfully');
       }
 
-      // Reset form and close modal
       handleCloseModal();
     } catch (error) {
       console.error('Error saving table:', error);
-      toast.error('Failed to save table');
+      toast.error(error.message || 'Failed to save table');
+    } finally {
+      setIsSaving(false);
     }
   };
 
   // Handle edit
   const handleEdit = (table) => {
+    const tableId = getTableId(table);
+    if (!tableId) {
+      toast.error('Unable to edit this table because its identifier is missing.');
+      return;
+    }
     setFormData({
       tableNumber: table.tableNumber,
       capacity: table.capacity,
       status: table.status,
       location: table.location,
-      description: table.description
+      description: table.description,
+      reservedStatus: Boolean(table.reservedStatus),
+      isActive: table.isActive !== undefined ? Boolean(table.isActive) : true,
     });
-    setIsEditing(table.id);
+    setIsEditing(tableId);
     setIsAddModalOpen(true);
   };
 
   const handleOpenQRModal = (table) => {
-    setSelectedQRTable(table);
+    const tableId = getTableId(table);
+    setSelectedQRTable({
+      ...table,
+      id: tableId || table?.id,
+    });
     setIsQRModalOpen(true);
   };
 
@@ -127,10 +221,27 @@ const Tables = () => {
   };
 
   // Handle delete
-  const handleDelete = (tableId) => {
-    if (window.confirm('Are you sure you want to delete this table? This action cannot be undone.')) {
-      setTables(tables.filter(table => table.id !== tableId));
+  const handleDelete = async (tableId) => {
+    if (!tableId) return;
+    if (!restaurantId) {
+      toast.error('Restaurant information is missing. Please try reloading the page.');
+      return;
+    }
+
+    if (!window.confirm('Are you sure you want to delete this table? This action cannot be undone.')) {
+      return;
+    }
+
+    try {
+      setDeletingId(tableId);
+      await tableService.deleteTable(restaurantId, tableId);
+      setTables(prevTables => prevTables.filter(table => getTableId(table) !== tableId));
       toast.success('Table deleted successfully');
+    } catch (error) {
+      console.error('Error deleting table:', error);
+      toast.error(error.message || 'Failed to delete table');
+    } finally {
+      setDeletingId(null);
     }
   };
 
@@ -143,7 +254,9 @@ const Tables = () => {
       capacity: 2,
       status: 'available',
       location: '',
-      description: ''
+      description: '',
+      reservedStatus: false,
+      isActive: true,
     });
   };
 
@@ -194,11 +307,23 @@ const Tables = () => {
               <p className="text-gray-600 mt-1">
                 Manage your restaurant tables and seating arrangements
               </p>
+              {!restaurantId ? (
+                <p className="mt-2 text-sm text-red-600">
+                  Restaurant information is missing. Please navigate from the restaurant dashboard and try again.
+                </p>
+              ) : null}
             </div>
             <div className="mt-4 md:mt-0">
               <Button
-                onClick={() => setIsAddModalOpen(true)}
+                onClick={() => {
+                  if (!restaurantId) {
+                    toast.error('Restaurant information is missing. Please try again from the dashboard.');
+                    return;
+                  }
+                  setIsAddModalOpen(true);
+                }}
                 className="bg-blue-600 hover:bg-blue-700 flex items-center cursor-pointer"
+                disabled={!restaurantId}
               >
                 <FiPlus className="mr-2" /> Add New Table
               </Button>
@@ -222,8 +347,15 @@ const Tables = () => {
             </p>
             <div className="mt-6">
               <Button
-                onClick={() => setIsAddModalOpen(true)}
+                onClick={() => {
+                  if (!restaurantId) {
+                    toast.error('Restaurant information is missing. Please try again from the dashboard.');
+                    return;
+                  }
+                  setIsAddModalOpen(true);
+                }}
                 className="bg-blue-600 hover:bg-blue-700 cursor-pointer"
+                disabled={!restaurantId}
               >
                 <FiPlus className="-ml-1 mr-2 h-5 w-5" />
                 Add Table
@@ -245,6 +377,12 @@ const Tables = () => {
                     Status
                   </th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Reserved
+                  </th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Active
+                  </th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Location
                   </th>
                   <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -253,10 +391,12 @@ const Tables = () => {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {tables.map((table) => (
-                  <tr key={table.id} className="hover:bg-gray-50">
+                {tables.map((table) => {
+                  const tableId = getTableId(table);
+                  return (
+                    <tr key={tableId || table.tableNumber} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-900">{table.tableNumber}</div>
+                      <div className="text-sm font-medium text-gray-900 flex items-center gap-2">Table <p className='font-bold text-blue-600'>{table.tableNumber}</p></div>
                       {table.description && (
                         <div className="text-sm text-gray-500">{table.description}</div>
                       )}
@@ -267,6 +407,20 @@ const Tables = () => {
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className={getStatusBadge(table.status)}>
                         {table.status.charAt(0).toUpperCase() + table.status.slice(1).replace('-', ' ')}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span
+                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${table.reservedStatus ? 'bg-yellow-100 text-yellow-800' : 'bg-gray-100 text-gray-700'}`}
+                      >
+                        {table.reservedStatus ? 'Reserved' : 'Not reserved'}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span
+                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${table.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}
+                      >
+                        {table.isActive ? 'Active' : 'Inactive'}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
@@ -290,15 +444,17 @@ const Tables = () => {
                       </button>
 
                       <button
-                        onClick={() => handleDelete(table.id)}
-                        className="text-red-600 hover:text-red-900 cursor-pointer"
+                        onClick={() => handleDelete(tableId)}
+                        className={`text-red-600 hover:text-red-900 ${deletingId === tableId ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                        disabled={deletingId === tableId}
                         title="Delete table"
                       >
                         <FiTrash2 className="h-5 w-5" />
                       </button>
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -414,6 +570,36 @@ const Tables = () => {
                       />
                     </div>
 
+                    {/* Reserved Status */}
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        name="reservedStatus"
+                        id="reservedStatus"
+                        checked={Boolean(formData.reservedStatus)}
+                        onChange={handleInputChange}
+                        className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                      />
+                      <label htmlFor="reservedStatus" className="text-sm font-medium text-gray-700">
+                        Reserved
+                      </label>
+                    </div>
+
+                    {/* Active Status */}
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        name="isActive"
+                        id="isActive"
+                        checked={Boolean(formData.isActive)}
+                        onChange={handleInputChange}
+                        className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                      />
+                      <label htmlFor="isActive" className="text-sm font-medium text-gray-700">
+                        Active
+                      </label>
+                    </div>
+
                     {/* Description */}
                     <div>
                       <label htmlFor="description" className="block text-sm font-medium text-gray-700">
@@ -435,6 +621,8 @@ const Tables = () => {
                       <Button
                         type="submit"
                         className="w-full justify-center sm:col-start-2 bg-blue-600 hover:bg-blue-700 cursor-pointer"
+                        loading={isSaving}
+                        disabled={isSaving}
                       >
                         <FiSave className="-ml-1 mr-2 h-5 w-5" />
                         {isEditing ? 'Update Table' : 'Add Table'}
@@ -461,6 +649,7 @@ const Tables = () => {
         table={selectedQRTable}
         onClose={handleCloseQRModal}
         restaurantData={restaurantData}
+        restaurantId={restaurantId}
       />
 
 

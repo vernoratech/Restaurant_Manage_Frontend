@@ -503,6 +503,13 @@ const MenuItems = ({ isNewItem = false }) => {
             <Button
               variant="outline"
               className="flex items-center"
+              onClick={() => toast.info('Category management is coming soon!')}
+            >
+              <FiPlus className="mr-2" /> Add Category
+            </Button>
+            <Button
+              variant="outline"
+              className="flex items-center"
               onClick={exportToCSV}
             >
               <FiDownload className="mr-2" /> Export
