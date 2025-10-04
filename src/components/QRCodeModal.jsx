@@ -36,6 +36,11 @@ const STYLE_PRESETS = [
   },
 ];
 
+const sanitizeOrigin = (origin) => {
+  if (!origin) return '';
+  return origin.replace(/\/+$/, '');
+};
+
 const sanitizeBasePath = (path) => {
   if (!path) return '';
   return path.startsWith('/') ? path : `/${path}`;
@@ -45,7 +50,7 @@ const buildDefaultTableUrl = (table, restaurantData) => {
   if (!table) return '';
 
   // const origin = typeof window !== 'undefined' ? window.location.origin : '';
-  const origin = "https://modern-card-wheat.vercel.app/";
+  const origin = sanitizeOrigin("https://modern-card-wheat.vercel.app/");
   
   const basePath = sanitizeBasePath(`table/${table.id}`);
 
@@ -54,11 +59,11 @@ const buildDefaultTableUrl = (table, restaurantData) => {
   }
 
   if (restaurantData?.slug) {
-    return `${origin}/restaurant/${restaurantData.slug}${basePath}`;
+    return `${origin}/menu/?restaurant_id=${restaurantData.slug}${basePath}`;
   }
 
   if (restaurantData?._id) {
-    return `${origin}/restaurant/${restaurantData._id}${basePath}`;
+    return `${origin}/menu/?restaurant_id=${restaurantData._id}${basePath}`;
   }
 
   return `${origin}${basePath}`;
