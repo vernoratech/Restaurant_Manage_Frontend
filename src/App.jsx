@@ -10,6 +10,8 @@ import PublicRoute from './router/PublicRoute.jsx'
 import HomePage from './pages/Home/HomePage.jsx'
 import Login from './pages/Auth/Login.jsx'
 import Register from './pages/Auth/Register.jsx'
+import PrivacyPolicy from './pages/Legal/PrivacyPolicy.jsx'
+import TermsConditions from './pages/Legal/TermsConditions.jsx'
 import RestaurantSetup from './pages/RestaurantSetup/Setup.jsx'
 import Dashboard from './pages/Dashboard/Dashboard.jsx'
 import Settings from './pages/Settings/Settings.jsx'
@@ -31,6 +33,9 @@ function App() {
             <Routes>
               {/* Public Home Page */}
               <Route path="/" element={<HomePage />} />
+
+              <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+              <Route path="/terms" element={<TermsConditions />} />
 
               {/* Public Auth Routes */}
               <Route

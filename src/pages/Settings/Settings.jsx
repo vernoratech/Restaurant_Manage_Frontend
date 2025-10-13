@@ -1,11 +1,12 @@
 // src/pages/Settings/Settings.jsx - Main Settings Page
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { useNavigationWarning } from '../../hooks/useNavigationWarning.js'
 import Button from '../../components/ui/Button.jsx'
 import Input from '../../components/ui/Input.jsx'
 import NavigationWarningModal from '../../components/NavigationWarningModal.jsx'
 import { useLocation, useNavigate } from 'react-router-dom'
+import { RiLogoutCircleRLine } from 'react-icons/ri'
 
 const Settings = () => {
   const { user, logout } = useAuth()
@@ -16,6 +17,11 @@ const Settings = () => {
   const navigate = useNavigate()
   const location = useLocation();
   const { restaurant } = location.state || {};
+  const [showWarning, setShowWarning] = useState(true);
+
+  useEffect(() => {
+    window.scrollTo(0, 0)
+  }, [location.pathname])
 
 
   // Load initial data
@@ -29,7 +35,7 @@ const Settings = () => {
   })
 
   // console.log("restaurant",restaurant);
-  
+
 
   const [restaurantData, setRestaurantData] = useState({
     name: '',
@@ -73,6 +79,7 @@ const Settings = () => {
     showModal: showNavWarning,
     handleConfirm: confirmNavigation,
     handleCancel: cancelNavigation,
+    setNavigationAllowed
   } = useNavigationWarning(
     hasUnsavedChanges,
     "Leave Settings?",
@@ -163,6 +170,17 @@ const Settings = () => {
     }
   }
 
+
+
+  const handleLogout = useCallback(() => {
+    // Simple confirmation and logout
+    if (window.confirm("Are you sure you want to logout?")) {
+      setNavigationAllowed(true);
+      setShowWarning(false);
+      logout();
+    }
+  }, [logout, setNavigationAllowed, setShowWarning]);
+
   const tabs = [
     { id: 'account', label: 'Account', icon: '👤' },
     { id: 'restaurant', label: 'Restaurant', icon: '🏪' },
@@ -232,8 +250,8 @@ const Settings = () => {
                     key={tab.id}
                     onClick={() => setActiveTab(tab.id)}
                     className={`w-full flex items-center px-4 py-3 text-left rounded-lg transition-colors ${activeTab === tab.id
-                        ? 'bg-blue-50 text-blue-700 border-l-4 border-blue-600'
-                        : 'text-gray-600 hover:bg-gray-50'
+                      ? 'bg-blue-50 text-blue-700 border-l-4 border-blue-600'
+                      : 'text-gray-600 hover:bg-gray-50'
                       }`}
                   >
                     <span className="text-xl mr-3">{tab.icon}</span>
@@ -311,9 +329,12 @@ const Settings = () => {
                       </div>
                     </div>
 
-                    <div className="flex justify-end pt-4">
+                    <div className="flex justify-end pt-4 gap-3">
                       <Button onClick={() => saveSettings('account')} loading={isLoading} disabled={user}>
                         Save Account Settings
+                      </Button>
+                      <Button onClick={() => handleLogout()} loading={isLoading} >
+                       <p>Logout</p> <RiLogoutCircleRLine className='text-[18px] ml-2'/>
                       </Button>
                     </div>
                   </div>

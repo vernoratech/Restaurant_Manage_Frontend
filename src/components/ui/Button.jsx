@@ -10,13 +10,13 @@ const Button = ({
   ...props
 }) => {
   const baseClasses =
-    'rounded-lg font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 transition-colors inline-flex items-center justify-center'
+    'rounded-lg font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 transition-colors inline-flex items-center justify-center '
 
   const variants = {
-    primary: 'bg-blue-600 text-white hover:bg-blue-700 focus:ring-blue-500',
-    secondary: 'bg-gray-600 text-white hover:bg-gray-700 focus:ring-gray-500',
+    primary: 'bg-blue-600 text-white hover:bg-blue-700 focus:ring-blue-500 cursor-pointer',
+    secondary: 'bg-gray-600 text-white hover:bg-gray-700 focus:ring-gray-500 cursor-pointer',
     outline:
-      'border border-gray-300 text-gray-700 hover:bg-gray-50 focus:ring-blue-500 bg-white',
+      'border border-gray-300 text-gray-700 hover:bg-gray-50 focus:ring-blue-500 bg-white cursor-pointer',
   }
 
   const sizes = {
