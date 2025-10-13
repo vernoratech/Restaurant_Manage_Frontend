@@ -787,6 +787,17 @@ const Dashboard = () => {
               <FiBarChart2 className="mr-2" />
               Analytics
             </Button>
+
+            <Button
+              variant="outline"
+              className="w-full flex items-center justify-center"
+              disabled={isSkippedUser}
+              title={isSkippedUser ? "Complete setup to unlock this feature" : ""}
+              onClick={handleSettingsClick}
+            >
+              <FiSettings className="mr-2" />
+              Settings
+            </Button>
           </div>
         </div>
 

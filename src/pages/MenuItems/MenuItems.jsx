@@ -1,10 +1,54 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import Button from '../../components/ui/Button';
 import { FiPlus, FiEdit2, FiTrash2, FiSearch, FiFilter, FiUpload, FiDownload } from 'react-icons/fi';
 import { toast } from 'react-toastify';
 import Skeleton from '../Skeleton/Skeleton';
+import categoryService from '../../services/categoryService';
+import menuService from '../../services/menuService';
+
+const resolveRestaurantId = (value) => {
+  if (!value) return null;
+
+  if (typeof value === 'string' || typeof value === 'number') {
+    const normalized = String(value).trim();
+    return normalized || null;
+  }
+
+  if (typeof value === 'object') {
+    if ('$oid' in value && typeof value.$oid === 'string') {
+      return value.$oid.trim() || null;
+    }
+
+    if ('_id' in value) {
+      const resolved = resolveRestaurantId(value._id);
+      if (resolved) return resolved;
+    }
+
+    if ('id' in value) {
+      const resolved = resolveRestaurantId(value.id);
+      if (resolved) return resolved;
+    }
+
+    if ('restaurantId' in value) {
+      const resolved = resolveRestaurantId(value.restaurantId);
+      if (resolved) return resolved;
+    }
+
+    if ('resId' in value) {
+      const resolved = resolveRestaurantId(value.resId);
+      if (resolved) return resolved;
+    }
+
+    if ('restaurant' in value) {
+      const resolved = resolveRestaurantId(value.restaurant);
+      if (resolved) return resolved;
+    }
+  }
+
+  return null;
+};
 
 const MenuItems = ({ isNewItem = false }) => {
   const { user, restaurantData } = useAuth();
@@ -21,27 +65,136 @@ const MenuItems = ({ isNewItem = false }) => {
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
   
+  // State for categories and category management
+  const [categories, setCategories] = useState([
+    { id: 'all', name: 'All Categories' },
+  ]);
+  const [isCategoriesLoading, setIsCategoriesLoading] = useState(false);
+  const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
+  const [editingCategory, setEditingCategory] = useState(null);
+  const [categoryForm, setCategoryForm] = useState({
+    name: '',
+    isActive: true,
+    isDefault: false,
+  });
+  const [isSavingCategory, setIsSavingCategory] = useState(false);
+
   // State for add item modal
   const [isAddItemModalOpen, setIsAddItemModalOpen] = useState(false);
+  const [isSavingItem, setIsSavingItem] = useState(false);
   const [newItem, setNewItem] = useState({
     name: '',
     description: '',
     price: '',
-    category: 'appetizers',
+    discountPrice: '',
+    quantity: '',
+    category: 'veg',
+    productCategoryId: '',
+    prepTime: '',
+    calories: '',
+    spicyLevel: '',
+    rating: '',
+    ingredients: '',
     isAvailable: true,
     imageUrl: ''
   });
 
-  // Sample categories
-  const categories = [
-    { id: 'appetizers', name: 'Appetizers' },
-    { id: 'main-course', name: 'Main Course' },
-    { id: 'desserts', name: 'Desserts' },
-    { id: 'beverages', name: 'Beverages' },
-  ];
+  // Get restaurant ID from auth context
+  const restaurantId = useMemo(() => {
+    const immediateCandidates = [
+      restaurantData?._id,
+      restaurantData?.id,
+      restaurantData?.restaurantId,
+      restaurantData?.resId,
+      restaurantData,
+      user?.resId,
+      user?.restaurantId,
+      user,
+    ];
+
+    for (const candidate of immediateCandidates) {
+      const resolved = resolveRestaurantId(candidate);
+      if (resolved) return resolved;
+    }
+
+    try {
+      const stored = localStorage.getItem('restaurantData');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        const storedCandidates = [
+          parsed,
+          parsed?._id,
+          parsed?.id,
+          parsed?.restaurantId,
+          parsed?.resId,
+          parsed?.restaurant,
+        ];
+
+        for (const candidate of storedCandidates) {
+          const resolved = resolveRestaurantId(candidate);
+          if (resolved) return resolved;
+        }
+      }
+    } catch (error) {
+      console.error('Failed to parse stored restaurant data:', error);
+    }
+
+    return null;
+  }, [restaurantData, user]);
+
+  // Filter categories for menu item form (exclude 'all')
+  const menuCategories = useMemo(() => {
+    return categories.filter(cat => cat.id !== 'all');
+  }, [categories]);
+
+  const getDefaultCategoryId = useCallback(() => {
+    return menuCategories.length > 0 ? menuCategories[0].id : '';
+  }, [menuCategories]);
+
+  const createEmptyNewItem = useCallback(() => ({
+    name: '',
+    description: '',
+    price: '',
+    discountPrice: '',
+    quantity: '',
+    category: 'veg',
+    productCategoryId: getDefaultCategoryId(),
+    prepTime: '',
+    calories: '',
+    spicyLevel: '',
+    rating: '',
+    ingredients: '',
+    isAvailable: true,
+    imageUrl: ''
+  }), [getDefaultCategoryId]);
+
+  useEffect(() => {
+    if (!menuCategories.length) return;
+
+    setNewItem(prev => {
+      if (prev.productCategoryId && menuCategories.some(cat => cat.id === prev.productCategoryId)) {
+        return prev;
+      }
+
+      return {
+        ...prev,
+        productCategoryId: menuCategories[0].id,
+      };
+    });
+  }, [menuCategories]);
 
   // Food image URLs for different categories
   const foodImages = {
+    veg: [
+      'https://images.unsplash.com/photo-1478144592103-25e218a04891?w=300&h=200&fit=crop',
+      'https://images.unsplash.com/photo-1512058564366-18510be2db19?w=300&h=200&fit=crop',
+      'https://images.unsplash.com/photo-1484980972926-edee96e0960d?w=300&h=200&fit=crop'
+    ],
+    'non-veg': [
+      'https://images.unsplash.com/photo-1604908176997-12518821ad01?w=300&h=200&fit=crop',
+      'https://images.unsplash.com/photo-1540189549336-e6e99c3679fe?w=300&h=200&fit=crop',
+      'https://images.unsplash.com/photo-1562967914-608f82629710?w=300&h=200&fit=crop'
+    ],
     appetizers: [
       'https://images.unsplash.com/photo-1601050690597-df0568f70950?w=300&h=200&fit=crop',
       'https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?w=300&h=200&fit=crop',
@@ -73,212 +226,169 @@ const MenuItems = ({ isNewItem = false }) => {
   // Handle input change for new item form
   const handleNewItemChange = (e) => {
     const { name, value, type, checked } = e.target;
-    setNewItem(prev => ({
-      ...prev,
-      [name]: type === 'checkbox' ? checked : value
-    }));
+    const resolvedValue = type === 'checkbox' ? checked : value;
+
+    setNewItem((prev) => {
+      const updated = {
+        ...prev,
+        [name]: resolvedValue,
+      };
+
+      if (name === 'category') {
+        const randomImage = getRandomImage(resolvedValue);
+        updated.imageUrl = randomImage;
+      }
+
+      return updated;
+    });
   };
 
-  // Handle image selection
-  const handleImageSelect = (category) => {
-    const images = foodImages[category] || [];
-    const randomImage = images[Math.floor(Math.random() * images.length)] || '';
-    setNewItem(prev => ({
-      ...prev,
-      imageUrl: randomImage,
-      category
-    }));
+  const handleImageSelect = (categoryType) => {
+    setNewItem((prev) => {
+      const key = typeof categoryType === 'string' && categoryType ? categoryType : prev.category;
+      const images = foodImages[key] || [];
+      const randomImage = images[Math.floor(Math.random() * images.length)] || 'https://via.placeholder.com/300x200?text=No+Image';
+
+      return {
+        ...prev,
+        imageUrl: randomImage,
+      };
+    });
   };
 
   // Handle form submission
-  const handleAddItem = (e) => {
+  const handleAddItem = async (e) => {
     e.preventDefault();
+    
     if (!newItem.name || !newItem.price || !newItem.category) {
       toast.error('Please fill in all required fields');
       return;
     }
 
-    // In a real app, you would make an API call here
-    const newMenuItem = {
-      ...newItem,
-      _id: Date.now().toString(),
-      price: parseFloat(newItem.price).toFixed(2)
-    };
+    if (!restaurantId) {
+      toast.error('Restaurant information is missing. Please try reloading the page.');
+      return;
+    }
 
-    setMenuItems(prev => [newMenuItem, ...prev]);
-    setFilteredItems(prev => [newMenuItem, ...prev]);
-    
-    // Reset form and close modal
-    setNewItem({
-      name: '',
-      description: '',
-      price: '',
-      category: 'appetizers',
-      isAvailable: true,
-      imageUrl: ''
-    });
-    
-    setIsAddItemModalOpen(false);
-    toast.success('Menu item added successfully!');
+    if (!newItem.productCategoryId) {
+      toast.error('Please select a category');
+      return;
+    }
+
+    if (!menuCategories.some(cat => cat.id === newItem.productCategoryId)) {
+      toast.error('Please select a valid category');
+      return;
+    }
+
+    setIsSavingItem(true);
+
+    try {
+      const fallbackImage = getRandomImage(newItem.category);
+      const payload = {
+        itemName: newItem.name,
+        description: newItem.description,
+        price: parseFloat(newItem.price),
+        discountPrice: newItem.discountPrice ? parseFloat(newItem.discountPrice) : undefined,
+        quantity: newItem.quantity,
+        itemCategory: newItem.category,
+        productCategory: newItem.productCategoryId,
+        prepTime: newItem.prepTime,
+        calories: newItem.calories ? parseInt(newItem.calories) : undefined,
+        spicyLevel: newItem.spicyLevel,
+        rating: newItem.rating ? parseFloat(newItem.rating) : undefined,
+        ingredients: newItem.ingredients ? newItem.ingredients.split(',').map(i => i.trim()).filter(Boolean) : [],
+        image: newItem.imageUrl ? [newItem.imageUrl] : fallbackImage ? [fallbackImage] : [],
+        isAvailable: newItem.isAvailable
+      };
+
+      const { item: createdItem } = await menuService.createMenuItem(restaurantId, payload);
+      
+      if (createdItem) {
+        setMenuItems(prev => [createdItem, ...prev]);
+        setFilteredItems(prev => [createdItem, ...prev]);
+        toast.success('Menu item added successfully!');
+        
+        // Reset form and close modal
+        setNewItem(createEmptyNewItem());
+
+        setIsAddItemModalOpen(false);
+      }
+    } catch (error) {
+      console.error('Error creating menu item:', error);
+      toast.error(error.message || 'Failed to create menu item');
+    } finally {
+      setIsSavingItem(false);
+    }
   };
-
   // Function to get a random image for a category
   const getRandomImage = (category) => {
     const images = foodImages[category] || [];
     return images[Math.floor(Math.random() * images.length)] || 'https://via.placeholder.com/300x200?text=No+Image';
   };
 
-  // Load menu items (using mock data)
+  // Load menu items from API
   useEffect(() => {
-    const loadMenuItems = () => {
+    const loadMenuItems = async () => {
+      if (!restaurantId) {
+        console.log('No restaurant ID available, skipping menu items load');
+        setIsLoading(false);
+        return;
+      }
+
+      if (isNewItem) {
+        setMenuItems([]);
+        setFilteredItems([]);
+        setIsLoading(false);
+        return;
+      }
+
       try {
         setIsLoading(true);
+        const { items } = await menuService.getMenuItems(restaurantId);
         
-        // If we're creating a new item, skip loading existing items
-        if (isNewItem) {
-          setMenuItems([]);
-          setFilteredItems([]);
-          setIsLoading(false);
-          return;
-        }
-        
-        // Simulate API call with timeout
-        const timer = setTimeout(() => {
-          // Mock data with specific items as requested
-          const mockMenuItems = [
-            {
-              _id: 'item-1',
-              name: 'Menu Item 1',
-              description: 'Delicious menu item number 1 with amazing flavors',
-              price: '18.74',
-              category: 'beverages',
-              isAvailable: false,
-              imageUrl: getRandomImage('beverages'),
-              createdAt: new Date().toISOString(),
-            },
-            {
-              _id: 'item-2',
-              name: 'Menu Item 2',
-              description: 'Delicious menu item number 2 with amazing flavors',
-              price: '20.22',
-              category: 'main-course',
-              isAvailable: true,
-              imageUrl: getRandomImage('main-course'),
-              createdAt: new Date().toISOString(),
-            },
-            {
-              _id: 'item-3',
-              name: 'Menu Item 3',
-              description: 'Delicious menu item number 3 with amazing flavors',
-              price: '22.91',
-              category: 'appetizers',
-              isAvailable: true,
-              imageUrl: getRandomImage('appetizers'),
-              createdAt: new Date().toISOString(),
-            },
-            {
-              _id: 'item-4',
-              name: 'Menu Item 4',
-              description: 'Delicious menu item number 4 with amazing flavors',
-              price: '12.20',
-              category: 'desserts',
-              isAvailable: true,
-              imageUrl: getRandomImage('desserts'),
-              createdAt: new Date().toISOString(),
-            },
-            {
-              _id: 'item-5',
-              name: 'Menu Item 5',
-              description: 'Delicious menu item number 5 with amazing flavors',
-              price: '22.78',
-              category: 'appetizers',
-              isAvailable: true,
-              imageUrl: getRandomImage('appetizers'),
-              createdAt: new Date().toISOString(),
-            },
-            {
-              _id: 'item-6',
-              name: 'Menu Item 6',
-              description: 'Delicious menu item number 6 with amazing flavors',
-              price: '14.59',
-              category: 'desserts',
-              isAvailable: false,
-              imageUrl: getRandomImage('desserts'),
-              createdAt: new Date().toISOString(),
-            },
-            {
-              _id: 'item-7',
-              name: 'Menu Item 7',
-              description: 'Delicious menu item number 7 with amazing flavors',
-              price: '9.02',
-              category: 'desserts',
-              isAvailable: true,
-              imageUrl: getRandomImage('desserts'),
-              createdAt: new Date().toISOString(),
-            },
-            {
-              _id: 'item-8',
-              name: 'Menu Item 8',
-              description: 'Delicious menu item number 8 with amazing flavors',
-              price: '17.17',
-              category: 'beverages',
-              isAvailable: true,
-              imageUrl: getRandomImage('beverages'),
-              createdAt: new Date().toISOString(),
-            },
-            {
-              _id: 'item-9',
-              name: 'Menu Item 9',
-              description: 'Delicious menu item number 9 with amazing flavors',
-              price: '21.84',
-              category: 'main-course',
-              isAvailable: true,
-              imageUrl: getRandomImage('main-course'),
-              createdAt: new Date().toISOString(),
-            },
-            {
-              _id: 'item-10',
-              name: 'Menu Item 10',
-              description: 'Delicious menu item number 10 with amazing flavors',
-              price: '17.47',
-              category: 'desserts',
-              isAvailable: true,
-              imageUrl: getRandomImage('desserts'),
-              createdAt: new Date().toISOString(),
-            },
-            // Add 15 more items to make it 25 total
-            ...Array.from({ length: 15 }, (_, i) => {
-              const category = categories[Math.floor(Math.random() * (categories.length - 1)) + 1].id;
-              const itemNum = i + 11;
-              return {
-                _id: `item-${itemNum}`,
-                name: `Menu Item ${itemNum}`,
-                description: `Delicious menu item number ${itemNum} with amazing flavors`,
-                price: (Math.random() * 20 + 5).toFixed(2),
-                category: category,
-                isAvailable: Math.random() > 0.3,
-                imageUrl: getRandomImage(category),
-                createdAt: new Date().toISOString(),
-              };
-            })
-          ];
-          
-          setMenuItems(mockMenuItems);
-          setFilteredItems(mockMenuItems);
-          setIsLoading(false);
-        }, 500); // Simulate network delay
-        
-        return () => clearTimeout(timer);
-        
+        setMenuItems(items);
+        setFilteredItems(items);
       } catch (error) {
         console.error('Error loading menu items:', error);
-        toast.error('Failed to load menu items');
+        toast.error(error.message || 'Failed to load menu items');
+        setMenuItems([]);
+        setFilteredItems([]);
+      } finally {
         setIsLoading(false);
       }
     };
 
     loadMenuItems();
-  }, [isNewItem]);
+  }, [restaurantId, isNewItem]);
+
+  // Load categories from API
+  useEffect(() => {
+    const loadCategories = async () => {
+      if (!restaurantId) {
+        return;
+      }
+
+      try {
+        setIsCategoriesLoading(true);
+        const { categories: fetchedCategories } = await categoryService.getCategories(restaurantId);
+        
+        // Add 'All Categories' option for filtering
+        const categoriesWithAll = [
+          { id: 'all', name: 'All Categories' },
+          ...fetchedCategories
+        ];
+        
+        setCategories(categoriesWithAll);
+      } catch (error) {
+        console.error('Error loading categories:', error);
+        toast.error(error.message || 'Failed to load categories');
+      } finally {
+        setIsCategoriesLoading(false);
+      }
+    };
+
+    loadCategories();
+  }, [restaurantId]);
 
   // Filter and search functionality
   useEffect(() => {
@@ -355,53 +465,189 @@ const MenuItems = ({ isNewItem = false }) => {
 
   // Handle delete item
   const handleDeleteItem = async (itemId) => {
-    if (window.confirm('Are you sure you want to delete this menu item?')) {
-      try {
-        // Here you would typically call your API to delete the item
-        // await fetch(`/api/restaurants/${restaurantData._id}/menu/${itemId}`, {
-        //   method: 'DELETE',
-        // });
-        
-        // Simulate API call
-        await new Promise(resolve => setTimeout(resolve, 500));
-        
-        // Update local state
-        setMenuItems(prevItems => prevItems.filter(item => item._id !== itemId));
-        toast.success('Menu item deleted successfully');
-      } catch (error) {
-        console.error('Error deleting menu item:', error);
-        toast.error('Failed to delete menu item');
-      }
+    if (!restaurantId) {
+      toast.error('Restaurant information is missing. Please try reloading the page.');
+      return;
+    }
+
+    if (!window.confirm('Are you sure you want to delete this menu item?')) {
+      return;
+    }
+
+    try {
+      await menuService.deleteMenuItem(restaurantId, itemId);
+      
+      // Update local state
+      setMenuItems(prevItems => prevItems.filter(item => item.id !== itemId));
+      setFilteredItems(prevItems => prevItems.filter(item => item.id !== itemId));
+      
+      toast.success('Menu item deleted successfully');
+    } catch (error) {
+      console.error('Error deleting menu item:', error);
+      toast.error(error.message || 'Failed to delete menu item');
     }
   };
 
   // Toggle item availability
   const toggleAvailability = async (itemId, currentStatus) => {
+    if (!restaurantId) {
+      toast.error('Restaurant information is missing. Please try reloading the page.');
+      return;
+    }
+
     try {
-      // Here you would typically call your API to update the item
-      // const response = await fetch(`/api/restaurants/${restaurantData._id}/menu/${itemId}`, {
-      //   method: 'PATCH',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify({ isAvailable: !currentStatus }),
-      // });
-      // const updatedItem = await response.json();
-      
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 300));
-      
-      // Update local state
-      setMenuItems(prevItems =>
-        prevItems.map(item =>
-          item._id === itemId
-            ? { ...item, isAvailable: !currentStatus }
-            : item
-        )
+      const currentItem = menuItems.find(item => item.id === itemId);
+      if (!currentItem) {
+        toast.error('Menu item not found');
+        return;
+      }
+
+      const { item: updatedItem } = await menuService.updateMenuItem(
+        restaurantId,
+        itemId,
+        { ...currentItem, isAvailable: !currentStatus }
       );
+      
+      if (updatedItem) {
+        // Update local state
+        setMenuItems(prevItems =>
+          prevItems.map(item =>
+            item.id === itemId ? updatedItem : item
+          )
+        );
+        
+        setFilteredItems(prevItems =>
+          prevItems.map(item =>
+            item.id === itemId ? updatedItem : item
+          )
+        );
+      }
       
       toast.success(`Item ${currentStatus ? 'disabled' : 'enabled'} successfully`);
     } catch (error) {
       console.error('Error updating item availability:', error);
-      toast.error('Failed to update item availability');
+      toast.error(error.message || 'Failed to update item availability');
+    }
+  };
+
+  // Category form handlers
+  const handleCategoryFormChange = (e) => {
+    const { name, value, type, checked } = e.target;
+    setCategoryForm(prev => ({
+      ...prev,
+      [name]: type === 'checkbox' ? checked : value
+    }));
+  };
+
+  const handleOpenCategoryModal = (category = null) => {
+    if (category) {
+      setEditingCategory(category.id);
+      setCategoryForm({
+        name: category.name,
+        isActive: category.isActive !== undefined ? Boolean(category.isActive) : true,
+        isDefault: category.isDefault !== undefined ? Boolean(category.isDefault) : false,
+      });
+    } else {
+      setEditingCategory(null);
+      setCategoryForm({
+        name: '',
+        isActive: true,
+        isDefault: false,
+      });
+    }
+    setIsCategoryModalOpen(true);
+  };
+
+  const handleCloseCategoryModal = () => {
+    setIsCategoryModalOpen(false);
+    setEditingCategory(null);
+    setCategoryForm({
+      name: '',
+      isActive: true,
+      isDefault: false,
+    });
+  };
+
+  const handleSaveCategory = async (e) => {
+    e.preventDefault();
+    
+    if (!categoryForm.name.trim()) {
+      toast.error('Category name is required');
+      return;
+    }
+
+    if (!restaurantId) {
+      toast.error('Restaurant information is missing. Please try reloading the page.');
+      return;
+    }
+
+    setIsSavingCategory(true);
+
+    try {
+      if (editingCategory) {
+        // Update existing category
+        const { category: updated } = await categoryService.updateCategory(
+          restaurantId,
+          editingCategory,
+          categoryForm
+        );
+        
+        setCategories(prevCategories =>
+          prevCategories.map(cat =>
+            cat.id === editingCategory
+              ? { ...cat, ...updated, id: updated.id || editingCategory }
+              : cat
+          )
+        );
+        
+        toast.success('Category updated successfully');
+      } else {
+        // Create new category
+        const { category: created } = await categoryService.createCategory(
+          restaurantId,
+          categoryForm
+        );
+        
+        if (created) {
+          setCategories(prevCategories => [...prevCategories, created]);
+          toast.success('Category created successfully');
+        }
+      }
+      
+      handleCloseCategoryModal();
+    } catch (error) {
+      console.error('Error saving category:', error);
+      toast.error(error.message || 'Failed to save category');
+    } finally {
+      setIsSavingCategory(false);
+    }
+  };
+
+  const handleDeleteCategory = async (categoryId) => {
+    if (!categoryId || categoryId === 'all') return;
+    
+    if (!restaurantId) {
+      toast.error('Restaurant information is missing. Please try reloading the page.');
+      return;
+    }
+
+    if (!window.confirm('Are you sure you want to delete this category? This action cannot be undone.')) {
+      return;
+    }
+
+    try {
+      await categoryService.deleteCategory(restaurantId, categoryId);
+      setCategories(prevCategories => prevCategories.filter(cat => cat.id !== categoryId));
+      
+      // Reset selected category if it was deleted
+      if (selectedCategory === categoryId) {
+        setSelectedCategory('all');
+      }
+      
+      toast.success('Category deleted successfully');
+    } catch (error) {
+      console.error('Error deleting category:', error);
+      toast.error(error.message || 'Failed to delete category');
     }
   };
 
@@ -503,7 +749,8 @@ const MenuItems = ({ isNewItem = false }) => {
             <Button
               variant="outline"
               className="flex items-center"
-              onClick={() => toast.info('Category management is coming soon!')}
+              onClick={() => handleOpenCategoryModal()}
+              disabled={!restaurantId}
             >
               <FiPlus className="mr-2" /> Add Category
             </Button>
@@ -518,14 +765,7 @@ const MenuItems = ({ isNewItem = false }) => {
               className="bg-blue-600 hover:bg-blue-700 flex items-center"
               onClick={() => {
                 // Reset the form when opening the modal
-                setNewItem({
-                  name: '',
-                  description: '',
-                  price: '',
-                  category: 'appetizers',
-                  isAvailable: true,
-                  imageUrl: ''
-                });
+                setNewItem(createEmptyNewItem());
                 setIsAddItemModalOpen(true);
               }}
             >
@@ -618,14 +858,7 @@ const MenuItems = ({ isNewItem = false }) => {
                 setSearchTerm('');
                 setSelectedCategory('all');
                 // Reset the form when opening the modal
-                setNewItem({
-                  name: '',
-                  description: '',
-                  price: '',
-                  category: 'appetizers',
-                  isAvailable: true,
-                  imageUrl: ''
-                });
+                setNewItem(createEmptyNewItem());
                 setIsAddItemModalOpen(true);
               }}
               className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
@@ -639,7 +872,7 @@ const MenuItems = ({ isNewItem = false }) => {
         <div className="bg-white shadow overflow-hidden sm:rounded-md">
           <ul className="divide-y divide-gray-200">
             {currentItems.map((item) => (
-              <li key={item._id} className="hover:bg-gray-50">
+              <li key={item.id} className="hover:bg-gray-50">
                 <div className="px-4 py-4 sm:px-6">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-4">
@@ -661,33 +894,54 @@ const MenuItems = ({ isNewItem = false }) => {
                             {item.name}
                           </p>
                           <span className="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                            {categories.find(cat => cat.id === item.category)?.name || 'Uncategorized'}
+                            {item.productCategoryName || menuCategories.find(cat => cat.id === item.productCategoryId)?.name || 'Uncategorized'}
                           </span>
                         </div>
                         <p className="text-sm text-gray-500 line-clamp-2 mt-1">
                           {item.description}
                         </p>
+                        {item.ingredients && item.ingredients.length > 0 && (
+                          <p className="text-xs text-gray-400 mt-1">
+                            Ingredients: {item.ingredients.slice(0, 3).join(', ')}{item.ingredients.length > 3 ? '...' : ''}
+                          </p>
+                        )}
                       </div>
                     </div>
                     <div className="ml-4 flex-shrink-0 flex flex-col items-end">
-                      <p className="text-lg font-semibold text-gray-900">
-                        ${parseFloat(item.price).toFixed(2)}
-                      </p>
+                      <div className="text-right">
+                        {item.discountPrice && item.discountPrice < item.basePrice ? (
+                          <div>
+                            <p className="text-lg font-semibold text-gray-900">
+                              ${parseFloat(item.discountPrice).toFixed(2)}
+                            </p>
+                            <p className="text-sm text-gray-500 line-through">
+                              ${parseFloat(item.basePrice).toFixed(2)}
+                            </p>
+                          </div>
+                        ) : (
+                          <p className="text-lg font-semibold text-gray-900">
+                            ${parseFloat(item.price).toFixed(2)}
+                          </p>
+                        )}
+                        {item.prepTime && (
+                          <p className="text-xs text-gray-500">{item.prepTime}</p>
+                        )}
+                      </div>
                       <div className="mt-2 flex space-x-2">
                         <button
-                          onClick={() => toggleAvailability(item._id, item.isAvailable)}
+                          onClick={() => toggleAvailability(item.id, item.isAvailable)}
                           className={`inline-flex items-center px-2.5 py-1.5 border border-transparent text-xs font-medium rounded shadow-sm text-white ${item.isAvailable ? 'bg-green-600 hover:bg-green-700' : 'bg-gray-500 hover:bg-gray-600'}`}
                         >
                           {item.isAvailable ? 'Available' : 'Unavailable'}
                         </button>
                         <button
-                          onClick={() => navigate(`/menu/items/${item._id}/edit`)}
+                          onClick={() => navigate(`/menu/items/${item.id}/edit`)}
                           className="inline-flex items-center p-1.5 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
                         >
                           <FiEdit2 className="h-4 w-4 text-gray-500" />
                         </button>
                         <button
-                          onClick={() => handleDeleteItem(item._id)}
+                          onClick={() => handleDeleteItem(item.id)}
                           className="inline-flex items-center p-1.5 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
                         >
                           <FiTrash2 className="h-4 w-4 text-red-500" />
@@ -944,6 +1198,124 @@ const MenuItems = ({ isNewItem = false }) => {
                     <div className="grid grid-cols-2 gap-4">
                       <div className="mb-4">
                         <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Discount Price
+                        </label>
+                        <div className="relative">
+                          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <span className="text-gray-500">$</span>
+                          </div>
+                          <input
+                            type="number"
+                            name="discountPrice"
+                            value={newItem.discountPrice}
+                            onChange={handleNewItemChange}
+                            step="0.01"
+                            min="0"
+                            className="pl-7 w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            placeholder="Optional"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="mb-4">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Quantity
+                        </label>
+                        <input
+                          type="text"
+                          name="quantity"
+                          value={newItem.quantity}
+                          onChange={handleNewItemChange}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          placeholder="e.g., 1 plate, 500ml"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="mb-4">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Prep Time
+                        </label>
+                        <input
+                          type="text"
+                          name="prepTime"
+                          value={newItem.prepTime}
+                          onChange={handleNewItemChange}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          placeholder="e.g., 15 min"
+                        />
+                      </div>
+
+                      <div className="mb-4">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Calories
+                        </label>
+                        <input
+                          type="number"
+                          name="calories"
+                          value={newItem.calories}
+                          onChange={handleNewItemChange}
+                          min="0"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          placeholder="Optional"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="mb-4">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Spicy Level
+                        </label>
+                        <select
+                          name="spicyLevel"
+                          value={newItem.spicyLevel}
+                          onChange={handleNewItemChange}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                          <option value="">Select level</option>
+                          <option value="low">Low</option>
+                          <option value="medium">Medium</option>
+                          <option value="high">High</option>
+                        </select>
+                      </div>
+
+                      <div className="mb-4">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Rating
+                        </label>
+                        <input
+                          type="number"
+                          name="rating"
+                          value={newItem.rating}
+                          onChange={handleNewItemChange}
+                          step="0.1"
+                          min="0"
+                          max="5"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          placeholder="0.0 - 5.0"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="mb-4">
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Ingredients
+                      </label>
+                      <input
+                        type="text"
+                        name="ingredients"
+                        value={newItem.ingredients}
+                        onChange={handleNewItemChange}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="e.g., cheese, tomato, flour (comma separated)"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="mb-4">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
                           Price <span className="text-red-500">*</span>
                         </label>
                         <div className="relative">
@@ -965,19 +1337,49 @@ const MenuItems = ({ isNewItem = false }) => {
 
                       <div className="mb-4">
                         <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Food Type <span className="text-red-500">*</span>
+                        </label>
+                        <div className="flex items-center space-x-6">
+                          <label className="inline-flex items-center gap-2 text-sm text-gray-700">
+                            <input
+                              type="radio"
+                              name="category"
+                              value="veg"
+                              checked={newItem.category === 'veg'}
+                              onChange={handleNewItemChange}
+                              className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300"
+                              required
+                            />
+                            Veg
+                          </label>
+                          <label className="inline-flex items-center gap-2 text-sm text-gray-700">
+                            <input
+                              type="radio"
+                              name="category"
+                              value="non-veg"
+                              checked={newItem.category === 'non-veg'}
+                              onChange={handleNewItemChange}
+                              className="h-4 w-4 text-red-600 focus:ring-red-500 border-gray-300"
+                            />
+                            Non Veg
+                          </label>
+                        </div>
+                      </div>
+                      <div className="mb-4">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
                           Category <span className="text-red-500">*</span>
                         </label>
                         <select
-                          name="category"
-                          value={newItem.category}
-                          onChange={(e) => {
-                            handleNewItemChange(e);
-                            handleImageSelect(e.target.value);
-                          }}
+                          name="productCategoryId"
+                          value={newItem.productCategoryId}
+                          onChange={handleNewItemChange}
                           className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                           required
                         >
-                          {categories.map((category) => (
+                          <option value="" disabled hidden>
+                            {menuCategories.length ? 'Select a category' : 'No categories available'}
+                          </option>
+                          {menuCategories.map((category) => (
                             <option key={category.id} value={category.id}>
                               {category.name}
                             </option>
@@ -1067,18 +1469,120 @@ const MenuItems = ({ isNewItem = false }) => {
                   >
                     Cancel
                   </button>
-                  <button
+                  <Button
                     type="submit"
                     className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                    loading={isSavingItem}
+                    disabled={isSavingItem}
                   >
                     Add Item
-                  </button>
+                  </Button>
                 </div>
               </form>
             </div>
           </div>
         </div>
       )}
+
+      {/* Category Management Modal */}
+      {isCategoryModalOpen && (
+        <div className="fixed z-50 inset-0 overflow-y-auto">
+          <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+            {/* Backdrop */}
+            <div
+              className="fixed inset-0 bg-gray-900/30 backdrop-blur-sm transition-opacity"
+              aria-hidden="true"
+              onClick={handleCloseCategoryModal}
+            ></div>
+
+            {/* Center modal */}
+            <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+
+            {/* Modal Content */}
+            <div className="inline-block align-bottom bg-white rounded-lg px-4 pt-5 pb-4 text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full sm:p-6 relative z-50">
+              <div className="sm:flex sm:items-start">
+                <div className="mt-3 text-center sm:mt-0 sm:text-left w-full">
+                  {/* Modal Header */}
+                  <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
+                    {editingCategory ? 'Edit Category' : 'Add New Category'}
+                  </h3>
+
+                  {/* Form */}
+                  <form onSubmit={handleSaveCategory} className="space-y-4">
+                    {/* Category Name */}
+                    <div>
+                      <label htmlFor="categoryName" className="block text-sm font-medium text-gray-700">
+                        Category Name <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        name="name"
+                        id="categoryName"
+                        value={categoryForm.name}
+                        onChange={handleCategoryFormChange}
+                        className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                        placeholder="e.g., Appetizers, Main Course"
+                        required
+                      />
+                    </div>
+
+                    {/* Active Status */}
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        name="isActive"
+                        id="categoryIsActive"
+                        checked={Boolean(categoryForm.isActive)}
+                        onChange={handleCategoryFormChange}
+                        className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                      />
+                      <label htmlFor="categoryIsActive" className="text-sm font-medium text-gray-700">
+                        Active
+                      </label>
+                    </div>
+
+                    {/* Default Status */}
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        name="isDefault"
+                        id="categoryIsDefault"
+                        checked={Boolean(categoryForm.isDefault)}
+                        onChange={handleCategoryFormChange}
+                        className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                      />
+                      <label htmlFor="categoryIsDefault" className="text-sm font-medium text-gray-700">
+                        Default Category
+                      </label>
+                    </div>
+
+                    {/* Action Buttons */}
+                    <div className="mt-5 sm:mt-6 sm:grid sm:grid-cols-2 sm:gap-3 sm:grid-flow-row-dense">
+                      <Button
+                        type="submit"
+                        className="w-full justify-center sm:col-start-2 bg-blue-600 hover:bg-blue-700 cursor-pointer"
+                        loading={isSavingCategory}
+                        disabled={isSavingCategory}
+                      >
+                        {editingCategory ? 'Update Category' : 'Add Category'}
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="mt-3 w-full justify-center sm:mt-0 sm:col-start-1 cursor-pointer"
+                        onClick={handleCloseCategoryModal}
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 };

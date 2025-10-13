@@ -62,11 +62,11 @@ const buildDefaultTableUrl = (table, restaurantData, restaurantIdProp) => {
   if (!table) return '';
 
   // const origin = typeof window !== 'undefined' ? window.location.origin : '';
-  const origin = sanitizeOrigin("https://modern-card-wheat.vercel.app/");
+  const origin = sanitizeOrigin('https://modern-card-wheat.vercel.app');
   const resolvedRestaurantId = resolveRestaurantId(restaurantIdProp, restaurantData);
 
   const tableIdentifier = table.id || table._id || table.tableId || table.tableNumber;
-  const tablePath = sanitizeBasePath('menu');
+  const tablePath = '';
 
   const buildUrlWithParams = (baseUrl) => {
     try {
@@ -93,7 +93,7 @@ const buildDefaultTableUrl = (table, restaurantData, restaurantIdProp) => {
 
   if (restaurantData?.qrBaseUrl) {
     const sanitizedBase = restaurantData.qrBaseUrl.replace(/\/$/, '');
-    const baseUrl = `${sanitizedBase}${sanitizeBasePath('menu')}`;
+    const baseUrl = sanitizedBase;
     return buildUrlWithParams(baseUrl);
   }
 
