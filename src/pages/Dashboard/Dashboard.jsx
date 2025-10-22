@@ -13,6 +13,7 @@ import VerifiedBadge from "../../components/VerifiedBadge.jsx";
 import { AiOutlineNotification } from "react-icons/ai";
 import { IoMdNotificationsOutline } from "react-icons/io";
 import { SlRefresh } from "react-icons/sl";
+import { BiFoodMenu } from "react-icons/bi";
 
 const Dashboard = () => {
   // --> STEP 1: ALL HOOKS AT THE TOP (NEVER MOVE THESE!)
@@ -729,7 +730,7 @@ const Dashboard = () => {
               </div>
               <div className="ml-4">
                 <h3 className="text-sm font-medium text-purple-600">
-                  Menu Items/Upload Items
+                  Total Menu Items
                 </h3>
                 <p className="text-2xl font-bold text-purple-600">
                   {isSkippedUser ? "N/A" : "0"}
@@ -810,20 +811,6 @@ const Dashboard = () => {
           <h2 className="text-xl font-bold mb-4">Quick Actions</h2>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <Link
-              to="/menu/items/new"
-              className={`w-full ${isSkippedUser ? 'pointer-events-none' : ''}`}
-              title={isSkippedUser ? "Complete setup to unlock this feature" : ""}
-            >
-              <Button
-                className="w-full h-full flex items-center justify-center"
-                disabled={isSkippedUser}
-              >
-                <FiPlus className="mr-2" />
-                Add Menu Item
-              </Button>
-            </Link>
-
-            <Link
               to="/menu/items"
               className={`w-full ${isSkippedUser ? 'pointer-events-none' : ''}`}
               title={isSkippedUser ? "Complete setup to unlock this feature" : ""}
@@ -833,7 +820,7 @@ const Dashboard = () => {
                 className="w-full h-full flex items-center justify-center"
                 disabled={isSkippedUser}
               >
-                <FiList className="mr-2" />
+                <BiFoodMenu className="mr-2" />
                 Manage Menu
               </Button>
             </Link>

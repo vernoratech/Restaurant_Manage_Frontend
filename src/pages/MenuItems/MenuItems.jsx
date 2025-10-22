@@ -494,48 +494,6 @@ const MenuItems = () => {
     }
   };
 
-  // Toggle item availability
-  const toggleAvailability = async (itemId, currentStatus) => {
-    if (!restaurantId) {
-      toast.error('Restaurant information is missing. Please try reloading the page.');
-      return;
-    }
-
-    try {
-      const currentItem = menuItems.find(item => item.id === itemId);
-      if (!currentItem) {
-        toast.error('Menu item not found');
-        return;
-      }
-
-      const { item: updatedItem } = await menuService.updateMenuItem(
-        restaurantId,
-        itemId,
-        { ...currentItem, isAvailable: !currentStatus }
-      );
-
-      if (updatedItem) {
-        // Update local state
-        setMenuItems(prevItems =>
-          prevItems.map(item =>
-            item.id === itemId ? updatedItem : item
-          )
-        );
-
-        setFilteredItems(prevItems =>
-          prevItems.map(item =>
-            item.id === itemId ? updatedItem : item
-          )
-        );
-      }
-
-      toast.success(`Item ${currentStatus ? 'disabled' : 'enabled'} successfully`);
-    } catch (error) {
-      console.error('Error updating item availability:', error);
-      toast.error(error.message || 'Failed to update item availability');
-    }
-  };
-
   // Category form handlers
   const handleCategoryFormChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -881,28 +839,27 @@ const MenuItems = () => {
                         {item.discountPrice && item.discountPrice < item.basePrice ? (
                           <div>
                             <p className="text-lg font-semibold text-gray-900">
-                              ${parseFloat(item.discountPrice).toFixed(2)}
+                              ₹{parseFloat(item.discountPrice).toFixed(2)}
                             </p>
                             <p className="text-sm text-gray-500 line-through">
-                              ${parseFloat(item.basePrice).toFixed(2)}
+                              ₹{parseFloat(item.basePrice).toFixed(2)}
                             </p>
                           </div>
                         ) : (
                           <p className="text-lg font-semibold text-gray-900">
-                            ${parseFloat(item.price).toFixed(2)}
+                            ₹{parseFloat(item.price).toFixed(2)}
                           </p>
                         )}
                         {item.prepTime && (
-                          <p className="text-xs text-gray-500">{item.prepTime}</p>
+                          <p className="text-xs text-gray-500">{item.prepTime}min</p>
                         )}
                       </div>
                       <div className="mt-2 flex space-x-2">
-                        <button
-                          onClick={() => toggleAvailability(item.id, item.isAvailable)}
-                          className={`inline-flex items-center px-2.5 py-1.5 border border-transparent text-xs font-medium rounded shadow-sm text-white ${item.isAvailable ? 'bg-green-600 hover:bg-green-700' : 'bg-gray-500 hover:bg-gray-600'}`}
+                        <h1
+                          className={`inline-flex items-center px-2.5 py-1.5 border border-transparent text-xs font-medium rounded shadow-sm text-white ${item.isAvailable ? 'bg-green-600' : 'bg-gray-500'}`}
                         >
                           {item.isAvailable ? 'Available' : 'Unavailable'}
-                        </button>
+                        </h1>
                         <button
                           onClick={() => navigate(`/menu/items/${item.id}/edit`)}
                           className="inline-flex items-center p-1.5 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
