@@ -194,19 +194,10 @@ const MenuItems = () => {
     const { name, value, type, checked } = e.target;
     const resolvedValue = type === 'checkbox' ? checked : value;
 
-    setNewItem((prev) => {
-      const updated = {
-        ...prev,
-        [name]: resolvedValue,
-      };
-
-      if (name === 'category') {
-        updated.imageUrls = [];
-        updated.imageFiles = [];
-      }
-
-      return updated;
-    });
+    setNewItem((prev) => ({
+      ...prev,
+      [name]: resolvedValue,
+    }));
   };
 
   const handleImageSelect = () => {
