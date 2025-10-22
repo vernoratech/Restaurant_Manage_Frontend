@@ -20,6 +20,11 @@ class ApiClient {
       ...options,
     };
 
+    // Handle FormData - remove Content-Type to let browser set it with boundary
+    if (options.body instanceof FormData) {
+      delete config.headers["Content-Type"];
+    }
+
     const token = localStorage.getItem("authToken");
 
     // Add Authorization header if token exists and it's not a public endpoint

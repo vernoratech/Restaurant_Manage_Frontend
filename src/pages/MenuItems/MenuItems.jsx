@@ -1,12 +1,13 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import Button from '../../components/ui/Button';
-import { FiPlus, FiEdit2, FiTrash2, FiSearch, FiFilter, FiUpload, FiDownload } from 'react-icons/fi';
+import { FiPlus, FiEdit2, FiTrash2, FiSearch, FiFilter, FiDownload } from 'react-icons/fi';
 import { toast } from 'react-toastify';
 import Skeleton from '../Skeleton/Skeleton';
 import categoryService from '../../services/categoryService';
 import menuService from '../../services/menuService';
+import menuServiceWithFiles from '../../services/menuServiceWithFiles';
 
 const resolveRestaurantId = (value) => {
   if (!value) return null;
@@ -50,10 +51,10 @@ const resolveRestaurantId = (value) => {
   return null;
 };
 
-const MenuItems = ({ isNewItem = false }) => {
+const MenuItems = () => {
   const { user, restaurantData } = useAuth();
   const navigate = useNavigate();
-  
+
   // State for menu items and UI
   const [menuItems, setMenuItems] = useState([]);
   const [filteredItems, setFilteredItems] = useState([]);
@@ -62,9 +63,7 @@ const MenuItems = ({ isNewItem = false }) => {
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(10);
-  const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
-  const [selectedFile, setSelectedFile] = useState(null);
-  
+
   // State for categories and category management
   const [categories, setCategories] = useState([
     { id: 'all', name: 'All Categories' },
@@ -78,10 +77,12 @@ const MenuItems = ({ isNewItem = false }) => {
     isDefault: false,
   });
   const [isSavingCategory, setIsSavingCategory] = useState(false);
+  const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
 
   // State for add item modal
   const [isAddItemModalOpen, setIsAddItemModalOpen] = useState(false);
   const [isSavingItem, setIsSavingItem] = useState(false);
+  const fileInputRef = useRef(null);
   const [newItem, setNewItem] = useState({
     name: '',
     description: '',
@@ -95,8 +96,10 @@ const MenuItems = ({ isNewItem = false }) => {
     spicyLevel: '',
     rating: '',
     ingredients: '',
+    tags: '',
     isAvailable: true,
-    imageUrl: ''
+    imageUrls: [],
+    imageFiles: []
   });
 
   // Get restaurant ID from auth context
@@ -164,8 +167,10 @@ const MenuItems = ({ isNewItem = false }) => {
     spicyLevel: '',
     rating: '',
     ingredients: '',
+    tags: '',
     isAvailable: true,
-    imageUrl: ''
+    imageUrls: [],
+    imageFiles: []
   }), [getDefaultCategoryId]);
 
   useEffect(() => {
@@ -183,83 +188,104 @@ const MenuItems = ({ isNewItem = false }) => {
     });
   }, [menuCategories]);
 
-  // Food image URLs for different categories
-  const foodImages = {
-    veg: [
-      'https://images.unsplash.com/photo-1478144592103-25e218a04891?w=300&h=200&fit=crop',
-      'https://images.unsplash.com/photo-1512058564366-18510be2db19?w=300&h=200&fit=crop',
-      'https://images.unsplash.com/photo-1484980972926-edee96e0960d?w=300&h=200&fit=crop'
-    ],
-    'non-veg': [
-      'https://images.unsplash.com/photo-1604908176997-12518821ad01?w=300&h=200&fit=crop',
-      'https://images.unsplash.com/photo-1540189549336-e6e99c3679fe?w=300&h=200&fit=crop',
-      'https://images.unsplash.com/photo-1562967914-608f82629710?w=300&h=200&fit=crop'
-    ],
-    appetizers: [
-      'https://images.unsplash.com/photo-1601050690597-df0568f70950?w=300&h=200&fit=crop',
-      'https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?w=300&h=200&fit=crop',
-      'https://images.unsplash.com/photo-1572695157366-5e585ab2b49f?w=300&h=200&fit=crop'
-    ],
-    'main-course': [
-      'https://images.unsplash.com/photo-1544025162-d76694265947?w=300&h=200&fit=crop',
-      'https://images.unsplash.com/photo-1555939594-58d7cb561ad1?w=300&h=200&fit=crop',
-      'https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?w=300&h=200&fit=crop',
-      'https://images.unsplash.com/photo-1504674900247-087703934569?w=300&h=200&fit=crop',
-      'https://images.unsplash.com/photo-1544025162-0e1a1d09e8c1?w=300&h=200&fit=crop'
-    ],
-    desserts: [
-      'https://images.unsplash.com/photo-1551024601-bec78aea704c?w=300&h=200&fit=crop',
-      'https://images.unsplash.com/photo-1563805042-7684c019e1cb?w=300&h=200&fit=crop',
-      'https://images.unsplash.com/photo-1509443769591-2f0d278aba34?w=300&h=200&fit=crop',
-      'https://images.unsplash.com/photo-1551024601-bfcfd0f2a94f?w=300&h=200&fit=crop',
-      'https://images.unsplash.com/photo 1488477181946-6428a0291777?w=300&h=200&fit=crop'
-    ],
-    beverages: [
-      'https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?w=300&h=200&fit=crop',
-      'https://images.unsplash.com/photo-1551024601-b789e04f7ff2?w=300&h=200&fit=crop',
-      'https://images.unsplash.com/photo-1513558161293-cdaf765ed2fd?w=300&h=200&fit=crop',
-      'https://images.unsplash.com/photo-1513558164603-84f228e1e0e2?w=300&h=200&fit=crop',
-      'https://images.unsplash.com/photo-1513558161294-52b27d0daa89?w=300&h=200&fit=crop'
-    ]
-  };
 
   // Handle input change for new item form
   const handleNewItemChange = (e) => {
     const { name, value, type, checked } = e.target;
     const resolvedValue = type === 'checkbox' ? checked : value;
 
-    setNewItem((prev) => {
-      const updated = {
-        ...prev,
-        [name]: resolvedValue,
-      };
-
-      if (name === 'category') {
-        const randomImage = getRandomImage(resolvedValue);
-        updated.imageUrl = randomImage;
-      }
-
-      return updated;
-    });
+    setNewItem((prev) => ({
+      ...prev,
+      [name]: resolvedValue,
+    }));
   };
 
-  const handleImageSelect = (categoryType) => {
-    setNewItem((prev) => {
-      const key = typeof categoryType === 'string' && categoryType ? categoryType : prev.category;
-      const images = foodImages[key] || [];
-      const randomImage = images[Math.floor(Math.random() * images.length)] || 'https://via.placeholder.com/300x200?text=No+Image';
+  const handleImageSelect = () => {
+    if (fileInputRef.current) {
+      fileInputRef.current.click();
+    }
+  };
 
-      return {
+  const handleImageFileChange = (event) => {
+    const input = event.target;
+    const files = Array.from(input.files || []);
+
+    if (files.length === 0) {
+      input.value = '';
+      return;
+    }
+
+    // Check if adding these files would exceed the limit
+    if (newItem.imageFiles.length + files.length > 5) {
+      toast.error(`You can only upload up to 5 images. Currently have ${newItem.imageFiles.length}, trying to add ${files.length}.`);
+      input.value = '';
+      return;
+    }
+
+    const maxSizeInBytes = 5 * 1024 * 1024;
+    const validFiles = [];
+
+    for (const file of files) {
+      if (!file.type.startsWith('image/')) {
+        toast.error(`${file.name} is not a valid image file`);
+        continue;
+      }
+
+      if (file.size > maxSizeInBytes) {
+        toast.error(`${file.name} is too large (max 5MB)`);
+        continue;
+      }
+
+      validFiles.push(file);
+    }
+
+    if (validFiles.length === 0) {
+      input.value = '';
+      return;
+    }
+
+    // Process all valid files for preview and store actual files
+    const processFiles = async () => {
+      const newImageUrls = [];
+      const newImageFiles = [];
+
+      for (const file of validFiles) {
+        const reader = new FileReader();
+        const result = await new Promise((resolve) => {
+          reader.onloadend = () => resolve(reader.result);
+          reader.readAsDataURL(file);
+        });
+
+        if (typeof result === 'string') {
+          newImageUrls.push(result);
+          newImageFiles.push(file);
+        }
+      }
+
+      setNewItem((prev) => ({
         ...prev,
-        imageUrl: randomImage,
-      };
-    });
+        imageUrls: [...prev.imageUrls, ...newImageUrls],
+        imageFiles: [...prev.imageFiles, ...newImageFiles],
+      }));
+
+      input.value = '';
+    };
+
+    processFiles();
+  };
+
+  const handleRemoveImage = (indexToRemove) => {
+    setNewItem((prev) => ({
+      ...prev,
+      imageUrls: prev.imageUrls.filter((_, index) => index !== indexToRemove),
+      imageFiles: prev.imageFiles.filter((_, index) => index !== indexToRemove),
+    }));
   };
 
   // Handle form submission
   const handleAddItem = async (e) => {
     e.preventDefault();
-    
+
     if (!newItem.name || !newItem.price || !newItem.category) {
       toast.error('Please fill in all required fields');
       return;
@@ -283,35 +309,60 @@ const MenuItems = ({ isNewItem = false }) => {
     setIsSavingItem(true);
 
     try {
-      const fallbackImage = getRandomImage(newItem.category);
-      const payload = {
-        itemName: newItem.name,
-        description: newItem.description,
-        price: parseFloat(newItem.price),
-        discountPrice: newItem.discountPrice ? parseFloat(newItem.discountPrice) : undefined,
-        quantity: newItem.quantity,
-        itemCategory: newItem.category,
-        productCategory: newItem.productCategoryId,
-        prepTime: newItem.prepTime,
-        calories: newItem.calories ? parseInt(newItem.calories) : undefined,
-        spicyLevel: newItem.spicyLevel,
-        rating: newItem.rating ? parseFloat(newItem.rating) : undefined,
-        ingredients: newItem.ingredients ? newItem.ingredients.split(',').map(i => i.trim()).filter(Boolean) : [],
-        image: newItem.imageUrl ? [newItem.imageUrl] : fallbackImage ? [fallbackImage] : [],
-        isAvailable: newItem.isAvailable
-      };
+      // Create FormData for file upload
+      const formData = new FormData();
 
-      const { item: createdItem } = await menuService.createMenuItem(restaurantId, payload);
-      
+      // Add all form fields
+      formData.append('itemName', newItem.name);
+      formData.append('description', newItem.description || '');
+      formData.append('price', newItem.price);
+      if (newItem.discountPrice) formData.append('discountPrice', newItem.discountPrice);
+      if (newItem.quantity) formData.append('quantity', newItem.quantity);
+      formData.append('itemCategory', newItem.category);
+      formData.append('productCategory', newItem.productCategoryId);
+      if (newItem.prepTime) formData.append('prepTime', newItem.prepTime);
+      if (newItem.calories) formData.append('calories', newItem.calories);
+      if (newItem.spicyLevel) formData.append('spicyLevel', newItem.spicyLevel);
+      if (newItem.rating) formData.append('rating', newItem.rating);
+
+      // Add ingredients as comma-separated string (based on your API response format)
+      if (newItem.ingredients) {
+        formData.append('ingredients', newItem.ingredients);
+      }
+
+      // Add tags if available (you might want to add this field to the form)
+      if (newItem.tags) {
+        formData.append('tags', newItem.tags);
+      }
+
+      formData.append('isAvailable', newItem.isAvailable);
+      formData.append('resId', restaurantId);
+
+      // Add image files
+      newItem.imageFiles.forEach((file, index) => {
+        formData.append('images', file);
+      });
+
+      const { item: createdItem } = await menuServiceWithFiles.createMenuItemWithFiles(restaurantId, formData);
+
       if (createdItem) {
-        setMenuItems(prev => [createdItem, ...prev]);
-        setFilteredItems(prev => [createdItem, ...prev]);
         toast.success('Menu item added successfully!');
-        
+
         // Reset form and close modal
         setNewItem(createEmptyNewItem());
-
         setIsAddItemModalOpen(false);
+
+        // Reload the menu items to get the updated list with proper normalization
+        try {
+          const { items } = await menuService.getMenuItems(restaurantId);
+          setMenuItems(items);
+          setFilteredItems(items);
+        } catch (error) {
+          console.error('Error reloading menu items:', error);
+          // Fallback: try to add the item directly if reload fails
+          setMenuItems(prev => [createdItem, ...prev]);
+          setFilteredItems(prev => [createdItem, ...prev]);
+        }
       }
     } catch (error) {
       console.error('Error creating menu item:', error);
@@ -320,32 +371,20 @@ const MenuItems = ({ isNewItem = false }) => {
       setIsSavingItem(false);
     }
   };
-  // Function to get a random image for a category
-  const getRandomImage = (category) => {
-    const images = foodImages[category] || [];
-    return images[Math.floor(Math.random() * images.length)] || 'https://via.placeholder.com/300x200?text=No+Image';
-  };
 
   // Load menu items from API
   useEffect(() => {
     const loadMenuItems = async () => {
       if (!restaurantId) {
-        console.log('No restaurant ID available, skipping menu items load');
         setIsLoading(false);
         return;
       }
 
-      if (isNewItem) {
-        setMenuItems([]);
-        setFilteredItems([]);
-        setIsLoading(false);
-        return;
-      }
 
       try {
         setIsLoading(true);
         const { items } = await menuService.getMenuItems(restaurantId);
-        
+
         setMenuItems(items);
         setFilteredItems(items);
       } catch (error) {
@@ -359,7 +398,7 @@ const MenuItems = ({ isNewItem = false }) => {
     };
 
     loadMenuItems();
-  }, [restaurantId, isNewItem]);
+  }, [restaurantId]);
 
   // Load categories from API
   useEffect(() => {
@@ -371,13 +410,13 @@ const MenuItems = ({ isNewItem = false }) => {
       try {
         setIsCategoriesLoading(true);
         const { categories: fetchedCategories } = await categoryService.getCategories(restaurantId);
-        
+
         // Add 'All Categories' option for filtering
         const categoriesWithAll = [
           { id: 'all', name: 'All Categories' },
           ...fetchedCategories
         ];
-        
+
         setCategories(categoriesWithAll);
       } catch (error) {
         console.error('Error loading categories:', error);
@@ -393,22 +432,22 @@ const MenuItems = ({ isNewItem = false }) => {
   // Filter and search functionality
   useEffect(() => {
     let result = [...menuItems];
-    
+
     // Apply category filter
     if (selectedCategory !== 'all') {
       result = result.filter(item => item.category === selectedCategory);
     }
-    
+
     // Apply search term
     if (searchTerm) {
       const term = searchTerm.toLowerCase();
       result = result.filter(
-        item => 
+        item =>
           item.name.toLowerCase().includes(term) ||
           item.description.toLowerCase().includes(term)
       );
     }
-    
+
     setFilteredItems(result);
     setCurrentPage(1); // Reset to first page when filters change
   }, [menuItems, searchTerm, selectedCategory]);
@@ -419,49 +458,7 @@ const MenuItems = ({ isNewItem = false }) => {
   const currentItems = filteredItems.slice(indexOfFirstItem, indexOfLastItem);
   const totalPages = Math.ceil(filteredItems.length / itemsPerPage);
 
-  // Handle file selection for bulk upload
-  const handleFileChange = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      // Validate file type (CSV or Excel)
-      const validTypes = ['text/csv', 'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'];
-      if (!validTypes.includes(file.type)) {
-        toast.error('Please upload a valid CSV or Excel file');
-        return;
-      }
-      setSelectedFile(file);
-    }
-  };
 
-  // Handle bulk upload
-  const handleBulkUpload = async () => {
-    if (!selectedFile) {
-      toast.error('Please select a file to upload');
-      return;
-    }
-
-    try {
-      // Here you would typically send the file to your API
-      // const formData = new FormData();
-      // formData.append('file', selectedFile);
-      // const response = await fetch(`/api/restaurants/${restaurantData._id}/menu/import`, {
-      //   method: 'POST',
-      //   body: formData,
-      // });
-      
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      toast.success('Menu items imported successfully!');
-      setSelectedFile(null);
-      setIsUploadModalOpen(false);
-      // Refresh the menu items
-      // fetchMenuItems();
-    } catch (error) {
-      console.error('Error uploading file:', error);
-      toast.error('Failed to import menu items');
-    }
-  };
 
   // Handle delete item
   const handleDeleteItem = async (itemId) => {
@@ -476,57 +473,15 @@ const MenuItems = ({ isNewItem = false }) => {
 
     try {
       await menuService.deleteMenuItem(restaurantId, itemId);
-      
+
       // Update local state
       setMenuItems(prevItems => prevItems.filter(item => item.id !== itemId));
       setFilteredItems(prevItems => prevItems.filter(item => item.id !== itemId));
-      
+
       toast.success('Menu item deleted successfully');
     } catch (error) {
       console.error('Error deleting menu item:', error);
       toast.error(error.message || 'Failed to delete menu item');
-    }
-  };
-
-  // Toggle item availability
-  const toggleAvailability = async (itemId, currentStatus) => {
-    if (!restaurantId) {
-      toast.error('Restaurant information is missing. Please try reloading the page.');
-      return;
-    }
-
-    try {
-      const currentItem = menuItems.find(item => item.id === itemId);
-      if (!currentItem) {
-        toast.error('Menu item not found');
-        return;
-      }
-
-      const { item: updatedItem } = await menuService.updateMenuItem(
-        restaurantId,
-        itemId,
-        { ...currentItem, isAvailable: !currentStatus }
-      );
-      
-      if (updatedItem) {
-        // Update local state
-        setMenuItems(prevItems =>
-          prevItems.map(item =>
-            item.id === itemId ? updatedItem : item
-          )
-        );
-        
-        setFilteredItems(prevItems =>
-          prevItems.map(item =>
-            item.id === itemId ? updatedItem : item
-          )
-        );
-      }
-      
-      toast.success(`Item ${currentStatus ? 'disabled' : 'enabled'} successfully`);
-    } catch (error) {
-      console.error('Error updating item availability:', error);
-      toast.error(error.message || 'Failed to update item availability');
     }
   };
 
@@ -570,7 +525,7 @@ const MenuItems = ({ isNewItem = false }) => {
 
   const handleSaveCategory = async (e) => {
     e.preventDefault();
-    
+
     if (!categoryForm.name.trim()) {
       toast.error('Category name is required');
       return;
@@ -591,7 +546,7 @@ const MenuItems = ({ isNewItem = false }) => {
           editingCategory,
           categoryForm
         );
-        
+
         setCategories(prevCategories =>
           prevCategories.map(cat =>
             cat.id === editingCategory
@@ -599,7 +554,7 @@ const MenuItems = ({ isNewItem = false }) => {
               : cat
           )
         );
-        
+
         toast.success('Category updated successfully');
       } else {
         // Create new category
@@ -607,13 +562,13 @@ const MenuItems = ({ isNewItem = false }) => {
           restaurantId,
           categoryForm
         );
-        
+
         if (created) {
           setCategories(prevCategories => [...prevCategories, created]);
           toast.success('Category created successfully');
         }
       }
-      
+
       handleCloseCategoryModal();
     } catch (error) {
       console.error('Error saving category:', error);
@@ -625,7 +580,7 @@ const MenuItems = ({ isNewItem = false }) => {
 
   const handleDeleteCategory = async (categoryId) => {
     if (!categoryId || categoryId === 'all') return;
-    
+
     if (!restaurantId) {
       toast.error('Restaurant information is missing. Please try reloading the page.');
       return;
@@ -638,12 +593,12 @@ const MenuItems = ({ isNewItem = false }) => {
     try {
       await categoryService.deleteCategory(restaurantId, categoryId);
       setCategories(prevCategories => prevCategories.filter(cat => cat.id !== categoryId));
-      
+
       // Reset selected category if it was deleted
       if (selectedCategory === categoryId) {
         setSelectedCategory('all');
       }
-      
+
       toast.success('Category deleted successfully');
     } catch (error) {
       console.error('Error deleting category:', error);
@@ -656,10 +611,10 @@ const MenuItems = ({ isNewItem = false }) => {
     // Convert menu items to CSV format
     const headers = ['Name', 'Description', 'Category', 'Price', 'Available'];
     const csvRows = [];
-    
+
     // Add headers
     csvRows.push(headers.join(','));
-    
+
     // Add data rows
     menuItems.forEach(item => {
       const row = [
@@ -671,40 +626,30 @@ const MenuItems = ({ isNewItem = false }) => {
       ];
       csvRows.push(row.join(','));
     });
-    
+
     // Create CSV file
     const csvContent = csvRows.join('\n');
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
-    
+
     // Create download link
     const link = document.createElement('a');
     link.setAttribute('href', url);
     link.setAttribute('download', `menu-export-${new Date().toISOString().split('T')[0]}.csv`);
     document.body.appendChild(link);
-    
+
     // Trigger download
     link.click();
-    
+
     // Cleanup
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
-    
+
     toast.success('Menu exported successfully');
   };
 
   if (isLoading) {
-    return (
-      // <div className="flex items-center justify-center min-h-screen bg-gray-50">
-      //   <div className="text-center">
-      //     <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-      //     <p className="mt-4 text-gray-600">
-      //       {isNewItem ? 'Preparing new menu item...' : 'Loading menu items...'}
-      //     </p>
-      //   </div>
-      // </div>
-      <Skeleton />
-    );
+    return <Skeleton />;
   }
 
   return (
@@ -713,16 +658,16 @@ const MenuItems = ({ isNewItem = false }) => {
       <div className="mb-8">
         <div className="flex flex-col">
           <div className="mb-4">
-            <button 
+            <button
               onClick={() => navigate('/dashboard')}
               className="inline-flex items-center px-3 py-1.5 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200"
               title="Back to Dashboard"
               aria-label="Back to Dashboard"
             >
-              <svg 
-                className="-ml-0.5 mr-2 h-4 w-4 text-gray-500 group-hover:text-gray-700 transition-colors duration-200" 
-                fill="none" 
-                viewBox="0 0 24 24" 
+              <svg
+                className="-ml-0.5 mr-2 h-4 w-4 text-gray-500 group-hover:text-gray-700 transition-colors duration-200"
+                fill="none"
+                viewBox="0 0 24 24"
                 stroke="currentColor"
               >
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
@@ -739,13 +684,6 @@ const MenuItems = ({ isNewItem = false }) => {
             </div>
           </div>
           <div className="mt-4 md:mt-0 flex space-x-3 mb-4">
-            <Button
-              variant="outline"
-              className="flex items-center"
-              onClick={() => setIsUploadModalOpen(true)}
-            >
-              <FiUpload className="mr-2" /> Bulk Import
-            </Button>
             <Button
               variant="outline"
               className="flex items-center"
@@ -789,7 +727,7 @@ const MenuItems = ({ isNewItem = false }) => {
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
-            
+
             <div>
               <select
                 className="block w-full pl-3 pr-10 py-2 text-base border border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
@@ -803,13 +741,13 @@ const MenuItems = ({ isNewItem = false }) => {
                 ))}
               </select>
             </div>
-            
+
             <div className="flex items-center space-x-2">
               <span className="text-sm text-gray-500">
                 {filteredItems.length} {filteredItems.length === 1 ? 'item' : 'items'} found
               </span>
               <span className="text-sm text-gray-400">|</span>
-              <button 
+              <button
                 className="text-sm text-blue-600 hover:text-blue-800"
                 onClick={() => {
                   setSearchTerm('');
@@ -830,42 +768,22 @@ const MenuItems = ({ isNewItem = false }) => {
             <FiFilter className="h-6 w-6 text-gray-400" />
           </div>
           <h3 className="mt-2 text-lg font-medium text-gray-900">
-            {isNewItem ? 'No items added yet' : 'No menu items found'}
+            No menu items found
           </h3>
           <p className="mt-1 text-sm text-gray-500">
-            {isNewItem 
-              ? 'Start by adding a new menu item.'
-              : searchTerm || selectedCategory !== 'all'
-                ? 'Try adjusting your search or filter criteria.'
-                : 'Get started by adding a new menu item.'
+            {searchTerm || selectedCategory !== 'all'
+              ? 'Try adjusting your search or filter criteria.'
+              : 'Get started by adding your first menu item.'
             }
           </p>
           <div className="mt-6 flex justify-center space-x-4">
-            {isNewItem && (
-              <Button
-                onClick={() => navigate('/menu/items')}
-                variant="outline"
-                className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-              >
-                <svg className="-ml-1 mr-2 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-                </svg>
-                Back to Menu Items
-              </Button>
-            )}
-            <Button
-              onClick={() => {
-                setSearchTerm('');
-                setSelectedCategory('all');
-                // Reset the form when opening the modal
-                setNewItem(createEmptyNewItem());
-                setIsAddItemModalOpen(true);
-              }}
+            <button
+              onClick={() => setIsAddItemModalOpen(true)}
               className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
             >
               <FiPlus className="-ml-1 mr-2 h-5 w-5" />
-              {isNewItem ? 'Add Your First Item' : 'Add Menu Item'}
-            </Button>
+              Add Menu Item
+            </button>
           </div>
         </div>
       ) : (
@@ -912,28 +830,27 @@ const MenuItems = ({ isNewItem = false }) => {
                         {item.discountPrice && item.discountPrice < item.basePrice ? (
                           <div>
                             <p className="text-lg font-semibold text-gray-900">
-                              ${parseFloat(item.discountPrice).toFixed(2)}
+                              ₹{parseFloat(item.discountPrice).toFixed(2)}
                             </p>
                             <p className="text-sm text-gray-500 line-through">
-                              ${parseFloat(item.basePrice).toFixed(2)}
+                              ₹{parseFloat(item.basePrice).toFixed(2)}
                             </p>
                           </div>
                         ) : (
                           <p className="text-lg font-semibold text-gray-900">
-                            ${parseFloat(item.price).toFixed(2)}
+                            ₹{parseFloat(item.price).toFixed(2)}
                           </p>
                         )}
                         {item.prepTime && (
-                          <p className="text-xs text-gray-500">{item.prepTime}</p>
+                          <p className="text-xs text-gray-500">{item.prepTime}min</p>
                         )}
                       </div>
                       <div className="mt-2 flex space-x-2">
-                        <button
-                          onClick={() => toggleAvailability(item.id, item.isAvailable)}
-                          className={`inline-flex items-center px-2.5 py-1.5 border border-transparent text-xs font-medium rounded shadow-sm text-white ${item.isAvailable ? 'bg-green-600 hover:bg-green-700' : 'bg-gray-500 hover:bg-gray-600'}`}
+                        <h1
+                          className={`inline-flex items-center px-2.5 py-1.5 border border-transparent text-xs font-medium rounded shadow-sm text-white ${item.isAvailable ? 'bg-green-600' : 'bg-gray-500'}`}
                         >
                           {item.isAvailable ? 'Available' : 'Unavailable'}
-                        </button>
+                        </h1>
                         <button
                           onClick={() => navigate(`/menu/items/${item.id}/edit`)}
                           className="inline-flex items-center p-1.5 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
@@ -1001,7 +918,7 @@ const MenuItems = ({ isNewItem = false }) => {
                       <span className="sr-only">Previous</span>
                       ‹
                     </button>
-                    
+
                     {/* Page numbers */}
                     {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
                       // Show current page in the middle when possible
@@ -1015,20 +932,20 @@ const MenuItems = ({ isNewItem = false }) => {
                       } else {
                         pageNum = currentPage - 2 + i;
                       }
-                      
+
                       return (
                         <button
                           key={pageNum}
                           onClick={() => setCurrentPage(pageNum)}
-                          className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${currentPage === pageNum 
-                            ? 'z-10 bg-blue-50 border-blue-500 text-blue-600' 
+                          className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${currentPage === pageNum
+                            ? 'z-10 bg-blue-50 border-blue-500 text-blue-600'
                             : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'}`}
                         >
                           {pageNum}
                         </button>
                       );
                     })}
-                    
+
                     <button
                       onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
                       disabled={currentPage === totalPages}
@@ -1150,7 +1067,7 @@ const MenuItems = ({ isNewItem = false }) => {
       {/* Add Item Modal */}
       {isAddItemModalOpen && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
             <div className="p-6">
               <div className="flex items-center justify-between mb-6">
                 <h2 className="text-2xl font-bold text-gray-900">Add New Menu Item</h2>
@@ -1165,7 +1082,7 @@ const MenuItems = ({ isNewItem = false }) => {
               </div>
 
               <form onSubmit={handleAddItem}>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                   {/* Left Column */}
                   <div>
                     <div className="mb-4">
@@ -1313,6 +1230,20 @@ const MenuItems = ({ isNewItem = false }) => {
                       />
                     </div>
 
+                    <div className="mb-4">
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Tags
+                      </label>
+                      <input
+                        type="text"
+                        name="tags"
+                        value={newItem.tags}
+                        onChange={handleNewItemChange}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="e.g., spicy, classic, indian (comma separated)"
+                      />
+                    </div>
+
                     <div className="grid grid-cols-2 gap-4">
                       <div className="mb-4">
                         <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -1407,26 +1338,49 @@ const MenuItems = ({ isNewItem = false }) => {
                   <div className="space-y-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Item Image
+                        Item Images <span className="text-gray-500">(Optional)</span>
                       </label>
-                      <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center">
-                        {newItem.imageUrl ? (
-                          <div className="relative">
-                            <img
-                              src={newItem.imageUrl}
-                              alt="Preview"
-                              className="mx-auto h-48 w-full object-cover rounded-md"
-                            />
-                            <button
-                              type="button"
-                              onClick={() => handleImageSelect(newItem.category)}
-                              className="mt-2 text-sm text-blue-600 hover:text-blue-800"
-                            >
-                              Change Image
-                            </button>
+                      <input
+                        type="file"
+                        ref={fileInputRef}
+                        accept="image/*"
+                        multiple
+                        className="hidden"
+                        onChange={handleImageFileChange}
+                      />
+                      <div className="border-2 border-dashed border-gray-300 rounded-lg p-4">
+                        {newItem.imageUrls.length > 0 ? (
+                          <div className="space-y-4">
+                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                              {newItem.imageUrls.map((imageUrl, index) => (
+                                <div key={index} className="relative group">
+                                  <img
+                                    src={imageUrl}
+                                    alt={`Preview ${index + 1}`}
+                                    className="w-full h-24 sm:h-32 object-cover rounded-md"
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() => handleRemoveImage(index)}
+                                    className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs hover:bg-red-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                                  >
+                                    ×
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                            {newItem.imageFiles.length < 5 && (
+                              <button
+                                type="button"
+                                onClick={handleImageSelect}
+                                className="w-full py-2 text-sm text-blue-600 hover:text-blue-800 border border-blue-300 rounded-md hover:bg-blue-50"
+                              >
+                                Add More Images ({newItem.imageFiles.length}/5)
+                              </button>
+                            )}
                           </div>
                         ) : (
-                          <div className="space-y-2">
+                          <div className="text-center space-y-2">
                             <svg
                               className="mx-auto h-12 w-12 text-gray-400"
                               stroke="currentColor"
@@ -1444,18 +1398,18 @@ const MenuItems = ({ isNewItem = false }) => {
                             <div className="text-sm text-gray-600">
                               <button
                                 type="button"
-                                onClick={() => handleImageSelect(newItem.category)}
+                                onClick={handleImageSelect}
                                 className="font-medium text-blue-600 hover:text-blue-500"
                               >
-                                Select an image
+                                Select Images
                               </button>
-                              <p className="text-xs text-gray-500 mt-1">or drag and drop</p>
+                              <p className="text-xs text-gray-500 mt-1">JPG, PNG, GIF, WebP (max 5MB each, up to 5 images)</p>
                             </div>
                           </div>
                         )}
                       </div>
                       <p className="mt-1 text-xs text-gray-500">
-                        Select a category to see image options
+                        Upload up to 5 images from your device to showcase the item
                       </p>
                     </div>
                   </div>
