@@ -208,21 +208,49 @@ const prepareMenuPayload = (data, restaurantId) => {
 };
 
 const menuService = {
-  async getMenuItems(restaurantId) {
+  async getMenuItems(restaurantId, params = {}) {
     if (!restaurantId) {
       throw new Error('Restaurant ID is required to fetch menu items');
     }
 
-    const endpoint = `/restaurants/menu/get-all-menu/${restaurantId}/items`;
+    const queryParams = new URLSearchParams();
+
+    Object.entries(params || {}).forEach(([key, value]) => {
+      if (value === undefined || value === null || value === '') {
+        return;
+      }
+
+      if (Array.isArray(value)) {
+        value.forEach((entry) => {
+          if (entry === undefined || entry === null || entry === '') return;
+          queryParams.append(key, entry);
+        });
+        return;
+      }
+
+      queryParams.append(key, value);
+    });
+
+    const queryString = queryParams.toString();
+    const endpointBase = `/restaurants/menu/getmenus/${restaurantId}/items/`;
+    const endpoint = queryString ? `${endpointBase}?${queryString}` : endpointBase;
+
     const response = await apiClient.request(endpoint, { method: 'GET' });
 
     const items = extractMenuItems(response)
       .map(normalizeMenuItem)
       .filter(Boolean);
 
+    const total = response?.data?.total ?? response?.total ?? response?.data?.pagination?.total ?? response?.pagination?.total ?? items.length;
+    const page = response?.data?.page ?? response?.page ?? params.page ?? 1;
+    const limit = response?.data?.limit ?? response?.limit ?? params.limit ?? items.length;
+
     return {
       success: true,
       items,
+      total: Number(total) || 0,
+      page: Number(page) || 1,
+      limit: Number(limit) || items.length || 0,
       raw: response,
     };
   },

@@ -8,6 +8,20 @@ import Skeleton from '../Skeleton/Skeleton';
 import categoryService from '../../services/categoryService';
 import menuService from '../../services/menuService';
 import menuServiceWithFiles from '../../services/menuServiceWithFiles';
+import { Spinner } from '../../components/ui/spinner';
+import { Badge } from '../../components/ui/badge';
+import { Checkbox } from '../../components/ui/checkbox';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '../../components/ui/table';
+import { Separator } from '../../components/ui/separator';
+import { ClockIcon } from '../../components/ui/icons/svg-spinners-clock';
+
 
 const resolveRestaurantId = (value) => {
   if (!value) return null;
@@ -58,11 +72,22 @@ const MenuItems = () => {
   // State for menu items and UI
   const [menuItems, setMenuItems] = useState([]);
   const [filteredItems, setFilteredItems] = useState([]);
+  const [totalItems, setTotalItems] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
+  const [isListLoading, setIsListLoading] = useState(false);
+  const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [searchInput, setSearchInput] = useState('');
+  const [minPriceInput, setMinPriceInput] = useState('');
+  const [maxPriceInput, setMaxPriceInput] = useState('');
+  const [minPrice, setMinPrice] = useState('');
+  const [maxPrice, setMaxPrice] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [currentPage, setCurrentPage] = useState(1);
+  const [selectedItems, setSelectedItems] = useState(new Set());
+  const [selectAll, setSelectAll] = useState(false);
   const [itemsPerPage] = useState(10);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   // State for categories and category management
   const [categories, setCategories] = useState([
@@ -352,17 +377,8 @@ const MenuItems = () => {
         setNewItem(createEmptyNewItem());
         setIsAddItemModalOpen(false);
 
-        // Reload the menu items to get the updated list with proper normalization
-        try {
-          const { items } = await menuService.getMenuItems(restaurantId);
-          setMenuItems(items);
-          setFilteredItems(items);
-        } catch (error) {
-          console.error('Error reloading menu items:', error);
-          // Fallback: try to add the item directly if reload fails
-          setMenuItems(prev => [createdItem, ...prev]);
-          setFilteredItems(prev => [createdItem, ...prev]);
-        }
+        // Trigger a refresh of the menu items
+        setRefreshKey(prev => prev + 1);
       }
     } catch (error) {
       console.error('Error creating menu item:', error);
@@ -372,33 +388,115 @@ const MenuItems = () => {
     }
   };
 
-  // Load menu items from API
+  // Load menu items from API with server-side pagination
   useEffect(() => {
     const loadMenuItems = async () => {
       if (!restaurantId) {
         setIsLoading(false);
+        setIsListLoading(false);
+        setMenuItems([]);
+        setFilteredItems([]);
+        setTotalItems(0);
         return;
       }
 
+      const params = {
+        page: currentPage,
+        limit: itemsPerPage,
+        sortBy: 'createdAt',
+        order: 'desc',
+      };
+
+      const trimmedSearch = searchTerm.trim();
+      if (trimmedSearch) {
+        params.search = trimmedSearch;
+      }
+
+      if (selectedCategory !== 'all') {
+        params.productCategory = selectedCategory;
+      }
+
+      const minPriceValue = parseFloat(minPrice);
+      if (!Number.isNaN(minPriceValue)) {
+        params.minPrice = minPriceValue;
+      }
+
+      const maxPriceValue = parseFloat(maxPrice);
+      if (!Number.isNaN(maxPriceValue)) {
+        params.maxPrice = maxPriceValue;
+      }
 
       try {
-        setIsLoading(true);
-        const { items } = await menuService.getMenuItems(restaurantId);
+        if (!hasLoadedOnce) {
+          setIsLoading(true);
+        }
+        setIsListLoading(true);
+        const { items, total } = await menuService.getMenuItems(restaurantId, params);
+        const normalizedTotal = Number(total) || 0;
+
+        // If we're on a page that doesn't exist anymore, go back one page
+        if (currentPage > 1 && items.length === 0 && normalizedTotal > 0) {
+          setCurrentPage(prev => Math.max(1, prev - 1));
+          return;
+        }
 
         setMenuItems(items);
         setFilteredItems(items);
+        setTotalItems(normalizedTotal);
+        setHasLoadedOnce(true);
       } catch (error) {
         console.error('Error loading menu items:', error);
         toast.error(error.message || 'Failed to load menu items');
         setMenuItems([]);
         setFilteredItems([]);
+        setTotalItems(0);
+        setHasLoadedOnce(true);
       } finally {
         setIsLoading(false);
+        setIsListLoading(false);
       }
     };
 
     loadMenuItems();
-  }, [restaurantId]);
+  }, [restaurantId, currentPage, itemsPerPage, searchTerm, selectedCategory, minPrice, maxPrice, refreshKey]);
+
+  // Reset selections when items change
+  useEffect(() => {
+    setSelectedItems(new Set());
+    setSelectAll(false);
+  }, [filteredItems]);
+
+  // Pagination calculations for server-side pagination
+  const totalPages = Math.ceil(totalItems / itemsPerPage);
+  const currentItems = filteredItems;
+  const startItemNumber = totalItems === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1;
+  const endItemNumber = totalItems === 0 ? 0 : startItemNumber + currentItems.length - 1;
+
+  // Handle select all checkbox
+  const handleSelectAll = (checked) => {
+    setSelectAll(checked);
+    if (checked) {
+      const allItemIds = new Set(currentItems.map(item => item.id));
+      setSelectedItems(allItemIds);
+    } else {
+      setSelectedItems(new Set());
+    }
+  };
+
+  // Handle individual checkbox
+  const handleSelectItem = (itemId, checked) => {
+    const newSelectedItems = new Set(selectedItems);
+    if (checked) {
+      newSelectedItems.add(itemId);
+    } else {
+      newSelectedItems.delete(itemId);
+    }
+    setSelectedItems(newSelectedItems);
+    
+    // Update select all state
+    const allSelected = currentItems.length > 0 && newSelectedItems.size === currentItems.length;
+    setSelectAll(allSelected);
+  };
 
   // Load categories from API
   useEffect(() => {
@@ -429,36 +527,35 @@ const MenuItems = () => {
     loadCategories();
   }, [restaurantId]);
 
-  // Filter and search functionality
+  // Debounce search input to trigger live search without blocking typing
   useEffect(() => {
-    let result = [...menuItems];
+    const handler = setTimeout(() => {
+      const trimmed = searchInput.trim();
+      setSearchTerm(prev => (prev === trimmed ? prev : trimmed));
+    }, 400);
 
-    // Apply category filter
-    if (selectedCategory !== 'all') {
-      result = result.filter(item => item.category === selectedCategory);
+    return () => clearTimeout(handler);
+  }, [searchInput]);
+
+  // Debounce min/max price inputs before triggering API calls
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      const normalizedMin = minPriceInput.trim();
+      const normalizedMax = maxPriceInput.trim();
+
+      setMinPrice(prev => (prev === normalizedMin ? prev : normalizedMin));
+      setMaxPrice(prev => (prev === normalizedMax ? prev : normalizedMax));
+    }, 400);
+
+    return () => clearTimeout(handler);
+  }, [minPriceInput, maxPriceInput]);
+
+  // Handle filter changes - reset to page 1 when filters change
+  useEffect(() => {
+    if (currentPage !== 1) {
+      setCurrentPage(1);
     }
-
-    // Apply search term
-    if (searchTerm) {
-      const term = searchTerm.toLowerCase();
-      result = result.filter(
-        item =>
-          item.name.toLowerCase().includes(term) ||
-          item.description.toLowerCase().includes(term)
-      );
-    }
-
-    setFilteredItems(result);
-    setCurrentPage(1); // Reset to first page when filters change
-  }, [menuItems, searchTerm, selectedCategory]);
-
-  // Pagination
-  const indexOfLastItem = currentPage * itemsPerPage;
-  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
-  const currentItems = filteredItems.slice(indexOfFirstItem, indexOfLastItem);
-  const totalPages = Math.ceil(filteredItems.length / itemsPerPage);
-
-
+  }, [searchTerm, selectedCategory, minPrice, maxPrice]);
 
   // Handle delete item
   const handleDeleteItem = async (itemId) => {
@@ -474,9 +571,8 @@ const MenuItems = () => {
     try {
       await menuService.deleteMenuItem(restaurantId, itemId);
 
-      // Update local state
-      setMenuItems(prevItems => prevItems.filter(item => item.id !== itemId));
-      setFilteredItems(prevItems => prevItems.filter(item => item.id !== itemId));
+      // Trigger a refresh of the menu items
+      setRefreshKey(prev => prev + 1);
 
       toast.success('Menu item deleted successfully');
     } catch (error) {
@@ -714,19 +810,43 @@ const MenuItems = () => {
 
         {/* Search and Filter Bar */}
         <div className="bg-white rounded-lg shadow p-4 mb-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="relative">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <form
+              className="relative"
+              onSubmit={(e) => {
+                e.preventDefault();
+                setSearchTerm(searchInput.trim());
+              }}
+            >
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                 <FiSearch className="text-gray-400" />
               </div>
               <input
                 type="text"
-                className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                className="block w-full pl-10 pr-20 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                 placeholder="Search menu items..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
               />
-            </div>
+              <button
+                type="submit"
+                disabled={isListLoading}
+                className={`absolute inset-y-1 right-1 px-3 py-1.5 text-white text-sm font-medium rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 cursor-pointer ${isListLoading
+                  ? 'bg-blue-400 cursor-not-allowed'
+                  : 'bg-blue-600 hover:bg-blue-700'
+                  }`}
+                aria-busy={isListLoading}
+              >
+                {isListLoading ? (
+                  <div className='flex items-center gap-2'>
+                    <span className='text-white'>Searching...</span>
+                    <Spinner />
+                  </div>
+                ) : (
+                  <span>Search</span>
+                )}
+              </button>
+            </form>
 
             <div>
               <select
@@ -742,15 +862,43 @@ const MenuItems = () => {
               </select>
             </div>
 
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <input
+                type="number"
+                inputMode="decimal"
+                min="0"
+                step="0.01"
+                placeholder="Min price"
+                value={minPriceInput}
+                onChange={(e) => setMinPriceInput(e.target.value)}
+                className="block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+              />
+              <input
+                type="number"
+                inputMode="decimal"
+                min="0"
+                step="0.01"
+                placeholder="Max price"
+                value={maxPriceInput}
+                onChange={(e) => setMaxPriceInput(e.target.value)}
+                className="block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+              />
+            </div>
+
             <div className="flex items-center space-x-2">
               <span className="text-sm text-gray-500">
-                {filteredItems.length} {filteredItems.length === 1 ? 'item' : 'items'} found
+                {totalItems} {totalItems === 1 ? 'item' : 'items'} found
               </span>
               <span className="text-sm text-gray-400">|</span>
               <button
                 className="text-sm text-blue-600 hover:text-blue-800"
                 onClick={() => {
+                  setSearchInput('');
                   setSearchTerm('');
+                  setMinPriceInput('');
+                  setMaxPriceInput('');
+                  setMinPrice('');
+                  setMaxPrice('');
                   setSelectedCategory('all');
                 }}
               >
@@ -762,7 +910,18 @@ const MenuItems = () => {
       </div>
 
       {/* Menu Items Grid */}
-      {currentItems.length === 0 ? (
+      {isListLoading && menuItems.length === 0 ? (
+        <div className="bg-white rounded-lg shadow p-12 text-center">
+          <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-blue-50">
+            <svg className="animate-spin h-6 w-6 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+            </svg>
+          </div>
+          <h3 className="mt-4 text-lg font-medium text-gray-900">Loading menu items...</h3>
+          <p className="mt-2 text-sm text-gray-500">Please wait while we fetch the latest data.</p>
+        </div>
+      ) : currentItems.length === 0 ? (
         <div className="bg-white rounded-lg shadow p-12 text-center">
           <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-gray-100">
             <FiFilter className="h-6 w-6 text-gray-400" />
@@ -787,89 +946,118 @@ const MenuItems = () => {
           </div>
         </div>
       ) : (
-        <div className="bg-white shadow overflow-hidden sm:rounded-md">
-          <ul className="divide-y divide-gray-200">
-            {currentItems.map((item) => (
-              <li key={item.id} className="hover:bg-gray-50">
-                <div className="px-4 py-4 sm:px-6">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-4">
-                      <div className="flex-shrink-0 h-16 w-16 rounded-md overflow-hidden">
-                        <img
-                          className="h-full w-full object-cover"
-                          src={item.imageUrl || '/dummylogo.jpg'}
-                          alt={item.name}
-                          onError={(e) => {
-                            e.target.src = '/dummylogo.jpg';
-                            e.target.onerror = null; // Prevent infinite loop if fallback also fails
-                            e.target.className = 'h-full w-full object-contain p-1 bg-white';
-                          }}
-                        />
-                      </div>
-                      <div>
-                        <div className="flex items-center">
-                          <p className="text-sm font-medium text-blue-600 truncate">
-                            {item.name}
-                          </p>
-                          <span className="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                            {item.productCategoryName || menuCategories.find(cat => cat.id === item.productCategoryId)?.name || 'Uncategorized'}
-                          </span>
-                        </div>
-                        <p className="text-sm text-gray-500 line-clamp-2 mt-1">
-                          {item.description}
+        <div className="bg-white shadow overflow-hidden sm:rounded-md relative">
+          {isListLoading && (
+            <div className="absolute inset-0 bg-white/70 flex items-center justify-center z-10">
+              <svg className="animate-spin h-8 w-8 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+              </svg>
+            </div>
+          )}
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>
+                  <Checkbox 
+                    className="w-4 h-4 ml-2 data-[state=checked]:border-blue-600 data-[state=checked]:bg-blue-600 data-[state=checked]:text-white data-[state=checked]:hover:bg-blue-600 data-[state=checked]:hover:text-white" 
+                    checked={selectAll}
+                    onCheckedChange={handleSelectAll}
+                  />
+                </TableHead>
+                <TableHead className="w-[100px]">Image</TableHead>
+                <TableHead>Name & Details</TableHead>
+                <TableHead>Category</TableHead>
+                <TableHead className="text-right">Price</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {currentItems.map((item) => (
+                <TableRow key={item.id}>
+                  <TableCell>
+                    <Checkbox 
+                      className="w-4 h-4 ml-2 data-[state=checked]:border-blue-600 data-[state=checked]:bg-blue-600 data-[state=checked]:text-white data-[state=checked]:hover:bg-blue-600 data-[state=checked]:hover:text-white" 
+                      checked={selectedItems.has(item.id)}
+                      onCheckedChange={(checked) => handleSelectItem(item.id, checked)}
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex-shrink-0 h-24 w-24 rounded-md overflow-hidden border border-gray-300 p-1">
+                      <img
+                        className="h-full w-full object-cover"
+                        src={item.imageUrl || '/dummylogo.jpg'}
+                        alt={item.name}
+                        onError={(e) => {
+                          e.target.src = '/dummylogo.jpg';
+                          e.target.onerror = null;
+                          e.target.className = 'h-full w-full object-contain p-1 bg-white';
+                        }}
+                      />
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <div>
+                      <p className="font-medium text-blue-600">{item.name}</p>
+                      <p className="text-sm text-gray-500 line-clamp-2">{item.description.slice(0, 100) + "..."}</p>
+                      {item.ingredients && item.ingredients.length > 0 && (
+                        <p className="text-sm text-gray-400 mt-1">
+                          Ingredients: {item.ingredients.slice(0, 3).join(', ')}{item.ingredients.length > 3 ? '...' : ''}
                         </p>
-                        {item.ingredients && item.ingredients.length > 0 && (
-                          <p className="text-xs text-gray-400 mt-1">
-                            Ingredients: {item.ingredients.slice(0, 3).join(', ')}{item.ingredients.length > 3 ? '...' : ''}
-                          </p>
-                        )}
-                      </div>
+                      )}
+                      {item.prepTime && (
+                        <p className="text-xs text-gray-500 mt-1 flex items-center"><ClockIcon className="w-3 h-3 mr-1"/>{item.prepTime}min prep</p>
+                      )}
                     </div>
-                    <div className="ml-4 flex-shrink-0 flex flex-col items-end">
-                      <div className="text-right">
-                        {item.discountPrice && item.discountPrice < item.basePrice ? (
-                          <div>
-                            <p className="text-lg font-semibold text-gray-900">
-                              ₹{parseFloat(item.discountPrice).toFixed(2)}
-                            </p>
-                            <p className="text-sm text-gray-500 line-through">
-                              ₹{parseFloat(item.basePrice).toFixed(2)}
-                            </p>
-                          </div>
-                        ) : (
-                          <p className="text-lg font-semibold text-gray-900">
-                            ₹{parseFloat(item.price).toFixed(2)}
-                          </p>
-                        )}
-                        {item.prepTime && (
-                          <p className="text-xs text-gray-500">{item.prepTime}min</p>
-                        )}
+                  </TableCell>
+                  <TableCell>
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                      {item.productCategoryName || menuCategories.find(cat => cat.id === item.productCategoryId)?.name || 'Uncategorized'}
+                    </span>
+                  </TableCell>
+                  <TableCell className="text-right">
+                    {item.discountPrice && item.discountPrice < item.basePrice ? (
+                      <div>
+                        <p className="font-semibold text-gray-900">
+                          ₹{parseFloat(item.discountPrice).toFixed(2)}
+                        </p>
+                        <p className="text-sm text-gray-500 line-through">
+                          ₹{parseFloat(item.basePrice).toFixed(2)}
+                        </p>
                       </div>
-                      <div className="mt-2 flex space-x-2">
-                        <h1
-                          className={`inline-flex items-center px-2.5 py-1.5 border border-transparent text-xs font-medium rounded shadow-sm text-white ${item.isAvailable ? 'bg-green-600' : 'bg-gray-500'}`}
-                        >
-                          {item.isAvailable ? 'Available' : 'Unavailable'}
-                        </h1>
-                        <button
-                          onClick={() => navigate(`/menu/items/${item.id}/edit`)}
-                          className="inline-flex items-center p-1.5 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                        >
-                          <FiEdit2 className="h-4 w-4 text-gray-500" />
-                        </button>
-                        <button
-                          onClick={() => handleDeleteItem(item.id)}
-                          className="inline-flex items-center p-1.5 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
-                        >
-                          <FiTrash2 className="h-4 w-4 text-red-500" />
-                        </button>
-                      </div>
+                    ) : (
+                      <p className="font-semibold text-gray-900">
+                        ₹{parseFloat(item.price).toFixed(2)}
+                      </p>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    <Badge className={`inline-flex items-center px-2.5 py-1.5 border border-transparent text-xs font-medium rounded shadow-sm text-white ${item.isAvailable ? 'bg-green-600' : 'bg-gray-500'}`}>
+                      {item.isAvailable ? 'Available' : 'Unavailable'}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex space-x-2 justify-end">
+                      <button
+                        onClick={() => navigate(`/menu/items/${item.id}/edit`)}
+                        className="inline-flex items-center p-1.5 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-whitefocus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 cursor-pointer hover:bg-blue-200 hover:text-blue-500 transition-colors duration-200"
+                      >
+                        <FiEdit2 className="h-5 w-5 transition-colors duration-200 cursor-pointer hover:scale-110" />
+                      </button>
+                      <button
+                        onClick={() => handleDeleteItem(item.id)}
+                        className="inline-flex items-center p-1.5 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 hover:bg-red-200 hover:text-red-500 transition-colors duration-200 cursor-pointer"
+                      >
+                        <FiTrash2 className="h-5 w-5 transition-colors duration-200 cursor-pointer hover:scale-110" />
+                      </button>
                     </div>
-                  </div>
-                </div>
-              </li>
-            ))}
-          </ul>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+
 
           {/* Pagination */}
           {totalPages > 1 && (
@@ -893,11 +1081,9 @@ const MenuItems = () => {
               <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
                 <div>
                   <p className="text-sm text-gray-700">
-                    Showing <span className="font-medium">{indexOfFirstItem + 1}</span> to{' '}
-                    <span className="font-medium">
-                      {Math.min(indexOfLastItem, filteredItems.length)}
-                    </span>{' '}
-                    of <span className="font-medium">{filteredItems.length}</span> results
+                    Showing <span className="font-medium">{startItemNumber}</span> to{' '}
+                    <span className="font-medium">{endItemNumber}</span>{' '}
+                    of <span className="font-medium">{totalItems}</span> results
                   </p>
                 </div>
                 <div>
