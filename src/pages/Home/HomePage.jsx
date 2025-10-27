@@ -14,6 +14,8 @@ import {
   FiMapPin,
   FiPhoneCall
 } from 'react-icons/fi'
+import { TbServerSpark } from "react-icons/tb";
+
 
 const HomePage = () => {
   const { isAuthenticated, user, logout, isLoading } = useAuth()
@@ -240,69 +242,69 @@ const HomePage = () => {
       {/* Header Navigation */}
       <header className="sticky top-0 z-40 border-b border-slate-800 bg-slate-950/80 backdrop-blur">
         <nav className="mx-auto flex w-full max-w-7xl items-center justify-between px-4 py-5 sm:px-6 lg:px-8">
-            {/* Logo */}
-            <Link to="/" className="flex items-center gap-3">
-              <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-500/10 text-xl font-bold text-blue-400">
-                VT
-              </span>
-              <div>
-                <h1 className="text-xl font-semibold leading-tight text-white">VernoraTech</h1>
-                <p className="text-xs uppercase tracking-[0.2em] text-slate-400">RestaurantOS</p>
-              </div>
-            </Link>
-
-            {/* Navigation Links */}
-            <div className="hidden md:block">
-              <div className="ml-10 flex items-center gap-6 text-sm font-medium">
-                <a href="#features" className="text-slate-300 transition hover:text-white">
-                  Features
-                </a>
-                <a href="#solutions" className="text-slate-300 transition hover:text-white">
-                  Solutions
-                </a>
-                <a href="#workflow" className="text-slate-300 transition hover:text-white">
-                  Workflow
-                </a>
-                <a href="#testimonials" className="text-slate-300 transition hover:text-white">
-                  Customers
-                </a>
-                <a href="#pricing" className="text-slate-300 transition hover:text-white">
-                  Pricing
-                </a>
-                <a href="#faq" className="text-slate-300 transition hover:text-white">
-                  FAQ
-                </a>
-                <a href="#about" className="text-slate-300 transition hover:text-white">
-                  About
-                </a>
-              </div>
+          {/* Logo */}
+          <Link to="/" className="flex items-center gap-3">
+            <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-500/10 text-xl font-bold text-blue-400">
+              VT
+            </span>
+            <div>
+              <h1 className="text-xl font-semibold leading-tight text-white">VernoraTech</h1>
+              <p className="text-xs uppercase tracking-[0.2em] text-slate-400">RestaurantOS</p>
             </div>
+          </Link>
 
-            {/* Auth Buttons */}
-            <div className="flex items-center gap-3">
-              {isLoading ? (
-                <div className="text-sm text-slate-400">Loading...</div>
-              ) : isAuthenticated ? (
-                <div className="flex items-center gap-4">
-                  <span className="hidden text-sm text-slate-300 sm:inline">Welcome back, {user?.name || 'User'}!</span>
-                  <Button className='cursor-pointer' onClick={() => navigate('/dashboard')} variant="primary" size="sm">
-                    Dashboard
-                  </Button>
-                  <Button className='cursor-pointer' onClick={logout} variant="outline" size="sm">
-                    Logout
-                  </Button>
-                </div>
-              ) : (
-                <>
-                  <Button className='cursor-pointer' onClick={() => handleAuthAction('/login')} variant="outline">
-                    Sign In
-                  </Button>
-                  <Button className='cursor-pointer' onClick={() => handleAuthAction('/register')} variant="primary">
-                    Get Started
-                  </Button>
-                </>
-              )}
+          {/* Navigation Links */}
+          <div className="hidden md:block">
+            <div className="ml-10 flex items-center gap-6 text-sm font-medium">
+              <a href="#features" className="text-slate-300 transition hover:text-white">
+                Features
+              </a>
+              <a href="#solutions" className="text-slate-300 transition hover:text-white">
+                Solutions
+              </a>
+              <a href="#workflow" className="text-slate-300 transition hover:text-white">
+                Workflow
+              </a>
+              <a href="#testimonials" className="text-slate-300 transition hover:text-white">
+                Customers
+              </a>
+              <a href="#pricing" className="text-slate-300 transition hover:text-white">
+                Pricing
+              </a>
+              <a href="#faq" className="text-slate-300 transition hover:text-white">
+                FAQ
+              </a>
+              <a href="#about" className="text-slate-300 transition hover:text-white">
+                About
+              </a>
             </div>
+          </div>
+
+          {/* Auth Buttons */}
+          <div className="flex items-center gap-3">
+            {isLoading ? (
+              <div className="text-sm text-slate-400">Loading...</div>
+            ) : isAuthenticated ? (
+              <div className="flex items-center gap-4">
+                <span className="hidden text-sm text-slate-300 sm:inline">Welcome back, {user?.name || 'User'}!</span>
+                <Button className='cursor-pointer' onClick={() => navigate('/dashboard')} variant="primary" size="sm">
+                  Dashboard
+                </Button>
+                <Button className='cursor-pointer' onClick={logout} variant="outline" size="sm">
+                  Logout
+                </Button>
+              </div>
+            ) : (
+              <>
+                <Button className='cursor-pointer' onClick={() => handleAuthAction('/login')} variant="outline">
+                  Sign In
+                </Button>
+                <Button className='cursor-pointer' onClick={() => handleAuthAction('/register')} variant="primary">
+                  Get Started
+                </Button>
+              </>
+            )}
+          </div>
         </nav>
       </header>
 
@@ -316,6 +318,10 @@ const HomePage = () => {
         <div className="mx-auto flex max-w-7xl flex-col gap-16 px-4 sm:px-6 lg:flex-row lg:items-center lg:px-8">
           <div className="max-w-3xl space-y-8">
             <div className="flex flex-wrap items-center gap-3">
+              <span className="inline-flex items-center gap-2 rounded-full px-4 py-1 text-sm border border-white/10 from-blue-500 to-blue-600 bg-gradient-to-r ">
+                <TbServerSpark className="h-6 w-6" />
+                <p className='font-bold text-xl'>'DEV' Environment</p>
+              </span>
               <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-1 text-sm text-blue-200 backdrop-blur">
                 <FiTrendingUp className="h-4 w-4" />
                 The operating system for modern restaurants
@@ -648,22 +654,20 @@ const HomePage = () => {
             <button
               type="button"
               onClick={() => setBillingCycle('monthly')}
-              className={`rounded-full px-5 py-2 transition ${
-                billingCycle === 'monthly'
+              className={`rounded-full px-5 py-2 transition ${billingCycle === 'monthly'
                   ? 'bg-blue-500/80 text-white shadow-md shadow-blue-500/30'
                   : 'border border-white/10 bg-white/5 text-slate-300 hover:border-white/30 hover:text-white'
-              }`}
+                }`}
             >
               Billed monthly
             </button>
             <button
               type="button"
               onClick={() => setBillingCycle('annually')}
-              className={`rounded-full px-5 py-2 transition ${
-                billingCycle === 'annually'
+              className={`rounded-full px-5 py-2 transition ${billingCycle === 'annually'
                   ? 'bg-blue-500/80 text-white shadow-md shadow-blue-500/30'
                   : 'border border-white/10 bg-white/5 text-slate-300 hover:border-white/30 hover:text-white'
-              }`}
+                }`}
             >
               Billed annually <span className="ml-1 text-emerald-200">(Save up to 10%)</span>
             </button>
@@ -681,11 +685,10 @@ const HomePage = () => {
               return (
                 <div
                   key={plan.name}
-                  className={`relative flex h-full flex-col gap-6 rounded-3xl border ${
-                    plan.highlighted
+                  className={`relative flex h-full flex-col gap-6 rounded-3xl border ${plan.highlighted
                       ? 'border-blue-400/50 bg-blue-500/15 shadow-blue-500/20'
                       : 'border-white/10 bg-white/[0.06]'
-                  } p-8 text-left shadow-2xl backdrop-blur transition hover:-translate-y-2`}
+                    } p-8 text-left shadow-2xl backdrop-blur transition hover:-translate-y-2`}
                 >
                   {plan.badge ? (
                     <span className="inline-flex w-fit rounded-full border border-white/10 bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-blue-100">
@@ -720,9 +723,8 @@ const HomePage = () => {
                         size="md"
                         disabled
                         aria-disabled
-                        className={`mt-auto w-full cursor-not-allowed border border-white/10 bg-white/5 text-slate-300 opacity-60 ${
-                          plan.highlighted ? '' : ''
-                        }`}
+                        className={`mt-auto w-full cursor-not-allowed border border-white/10 bg-white/5 text-slate-300 opacity-60 ${plan.highlighted ? '' : ''
+                          }`}
                       >
                         {isStarterPlan ? 'Switch to Starter (contact support)' : 'Contact sales for custom pricing'}
                       </Button>
@@ -730,9 +732,8 @@ const HomePage = () => {
                   ) : (
                     <Button
                       size="md"
-                      className={`mt-auto w-full cursor-pointer ${
-                        plan.highlighted ? '' : 'border border-white/10 bg-transparent hover:border-white/30'
-                      }`}
+                      className={`mt-auto w-full cursor-pointer ${plan.highlighted ? '' : 'border border-white/10 bg-transparent hover:border-white/30'
+                        }`}
                       onClick={() => handleAuthAction(isEnterprisePlan ? '/contact' : '/register')}
                     >
                       {buttonLabel}
