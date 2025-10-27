@@ -50,8 +50,8 @@ export const AuthProvider = ({ children, navigate }) => {
   }, [toast]);
 
   const login = async (credentials) => {
+    setIsLoading(true);
     try {
-      setIsLoading(true);
 
       const response = await apiClient.login(credentials);
 
@@ -283,6 +283,7 @@ export const AuthProvider = ({ children, navigate }) => {
     user,
     isAuthenticated,
     isLoading,
+    setIsLoading,
     login,
     register,
     logout,

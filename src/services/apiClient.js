@@ -1,4 +1,5 @@
 // src/services/apiClient.js
+// const BASE_URL = "http://localhost:5000/api";
 const BASE_URL = "https://restaurantmenu-five.vercel.app/api";
 
 class ApiClient {
@@ -18,6 +19,11 @@ class ApiClient {
       mode: "cors",
       ...options,
     };
+
+    // Handle FormData - remove Content-Type to let browser set it with boundary
+    if (options.body instanceof FormData) {
+      delete config.headers["Content-Type"];
+    }
 
     const token = localStorage.getItem("authToken");
 

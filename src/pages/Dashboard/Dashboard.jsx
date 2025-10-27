@@ -1,14 +1,19 @@
 // src/pages/Dashboard/Dashboard.jsx - COMPLETE INTEGRATED VERSION
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useAuth } from "../../context/AuthContext.jsx";
 import { useNavigationWarning } from "../../hooks/useNavigationWarning.js";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import Button from "../../components/ui/Button.jsx";
+import { FiPlus, FiList, FiShoppingBag, FiBarChart2, FiSettings, FiEdit3 } from "react-icons/fi";
 import EditRestaurantModal from "../../components/EditRestaurantModal.jsx";
 import NavigationWarningModal from "../../components/NavigationWarningModal.jsx";
 import RevenueSecurityModal from "../../components/RevenueSecurityModal.jsx";
 import EmailVerificationAlert from "../../components/EmailVerificationAlert.jsx";
 import VerifiedBadge from "../../components/VerifiedBadge.jsx";
+import { AiOutlineNotification } from "react-icons/ai";
+import { IoMdNotificationsOutline } from "react-icons/io";
+import { SlRefresh } from "react-icons/sl";
+import { BiFoodMenu } from "react-icons/bi";
 
 const Dashboard = () => {
   // --> STEP 1: ALL HOOKS AT THE TOP (NEVER MOVE THESE!)
@@ -29,6 +34,7 @@ const Dashboard = () => {
     mode: "verify",
   });
   const [isSkippedUser, setIsSkippedUser] = useState(false);
+  const [showNotifications, setShowNotifications] = useState(false);
 
   // --> CUSTOM HOOKS
   const {
@@ -234,20 +240,12 @@ const Dashboard = () => {
   const handleSettingsClick = useCallback(() => {
     const savedPin = localStorage.getItem("revenuePIN");
     if (!savedPin) {
-      setRevenueSecurityModal({ isOpen: true, mode: "setup" });
+      setRevenueSecurityModal({ isOpen: true, mode: "setup", data: restaurantData });
     } else {
-      navigate("/settings");
-    }
-  }, [navigate]);
+      navigate("/settings", { state: { restaurant: restaurantData } });
 
-  const handleLogout = useCallback(() => {
-    // Simple confirmation and logout
-    if (window.confirm("Are you sure you want to logout?")) {
-      setNavigationAllowed(true);
-      setShowWarning(false);
-      logout();
     }
-  }, [logout, setNavigationAllowed, setShowWarning]);
+  }, [navigate, restaurantData]);
 
   // --> NEW: Handle completing setup from dashboard
   const handleCompleteSetup = useCallback(() => {
@@ -271,6 +269,44 @@ const Dashboard = () => {
     thisMonth: 75200,
     currency: "₹",
   };
+  const fallbackNotifications = [
+    {
+      id: "demo-1",
+      title: "New order received",
+      message: "Table 4 just placed an order for 3 items.",
+      time: "2 mins ago",
+    },
+    {
+      id: "demo-2",
+      title: "Inventory reminder",
+      message: "You are running low on fresh ingredients for today's menu.",
+      time: "1 hour ago",
+    },
+  ];
+
+  const notifications =
+    restaurantData?.notifications && restaurantData.notifications.length > 0
+      ? restaurantData.notifications
+      : fallbackNotifications;
+
+  const notificationCount = notifications.length;
+
+  const notificationRef = useRef(null);
+
+  useEffect(() => {
+    if (!showNotifications) return;
+
+    const handleClickOutside = (event) => {
+      if (notificationRef.current && !notificationRef.current.contains(event.target)) {
+        setShowNotifications(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [showNotifications]);
 
   // --> STEP 4: EARLY RETURNS (AFTER ALL HOOKS!)
   if (isLoading) {
@@ -397,16 +433,81 @@ const Dashboard = () => {
               variant="outline"
               size="sm"
             >
-              ✏️ {isSkippedUser ? 'Complete Setup' : 'Edit Restaurant'}
+              <FiEdit3 className="text-md mr-2" /> {isSkippedUser ? 'Complete Setup' : 'Edit Restaurant'}
             </Button>
             {!isSkippedUser && (
               <Button onClick={refreshRestaurantData} variant="outline" size="sm">
-                🔄 Refresh
+                <SlRefresh className="text-md mr-1"/><p>Refresh</p>
               </Button>
             )}
-            <Button onClick={handleLogout} variant="outline" size="sm">
-              Logout
+
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={isSkippedUser}
+              title={isSkippedUser ? "Complete setup to unlock this feature" : ""}
+              onClick={handleSettingsClick}
+            >
+              <FiSettings className="text-xl"/>
             </Button>
+
+            <div ref={notificationRef} className="relative">
+              <Button
+                variant="outline"
+                size="sm"
+                className="relative flex items-center"
+                onClick={() => setShowNotifications((prev) => !prev)}
+              >
+                <IoMdNotificationsOutline className="text-xl"/>
+                {notificationCount > 0 && (
+                  <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-xs font-semibold flex items-center justify-center">
+                    {notificationCount > 99 ? '99+' : notificationCount}
+                  </span>
+                )}
+              </Button>
+              {showNotifications && (
+                <div className="absolute right-0 mt-3 w-72 bg-white border border-gray-200 rounded-lg shadow-xl z-50">
+                  <div className="px-4 py-3 border-b border-gray-100">
+                    <p className="text-sm font-semibold text-gray-900">Notifications</p>
+                    <p className="text-xs text-gray-500">Recent updates for your restaurant</p>
+                  </div>
+                  <div className="max-h-80 overflow-y-auto divide-y divide-gray-100">
+                    {notifications.length === 0 ? (
+                      <div className="px-4 py-6 text-center text-sm text-gray-500">
+                        You're all caught up!
+                      </div>
+                    ) : (
+                      notifications.map((notification, index) => (
+                        <div key={notification.id || index} className="px-4 py-3 hover:bg-gray-50 transition-colors">
+                          <p className="text-sm font-medium text-gray-900">
+                            {notification.title || 'Notification'}
+                          </p>
+                          {notification.message && (
+                            <p className="mt-1 text-sm text-gray-600">
+                              {notification.message}
+                            </p>
+                          )}
+                          {(notification.time || notification.createdAt) && (
+                            <p className="mt-1 text-xs text-gray-400">
+                              {notification.time || notification.createdAt}
+                            </p>
+                          )}
+                        </div>
+                      ))
+                    )}
+                  </div>
+                  <div className="px-4 py-2 text-center border-t border-gray-100">
+                    <button
+                      className="text-sm font-medium text-blue-600 hover:text-blue-500"
+                      onClick={() => setShowNotifications(false)}
+                    >
+                      Close
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+
           </div>
         </div>
       </div>
@@ -574,7 +675,7 @@ const Dashboard = () => {
                 </div>
               </div>
               <div className="ml-4">
-                <h3 className="text-sm font-medium text-gray-500">
+                <h3 className="text-sm font-medium text-blue-600">
                   Orders Today
                 </h3>
                 <p className="text-2xl font-bold text-blue-600">
@@ -594,13 +695,13 @@ const Dashboard = () => {
               </div>
               <div className="ml-4 flex-1">
                 <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-medium text-gray-500">Revenue</h3>
+                  <h3 className="text-sm font-medium text-green-600">Revenue</h3>
                   {!isSkippedUser && (
                     <button
                       onClick={handleRevenueToggle}
                       className={`p-1 rounded-full transition-colors ${isRevenueVisible
-                          ? "text-green-600 hover:bg-green-100"
-                          : "text-gray-400 hover:bg-gray-100"
+                        ? "text-green-600 hover:bg-green-100"
+                        : "text-gray-400 hover:bg-gray-100"
                         }`}
                       title={isRevenueVisible ? "Hide Revenue" : "Show Revenue"}
                     >
@@ -628,8 +729,8 @@ const Dashboard = () => {
                 </div>
               </div>
               <div className="ml-4">
-                <h3 className="text-sm font-medium text-gray-500">
-                  Menu Items
+                <h3 className="text-sm font-medium text-purple-600">
+                  Total Menu Items
                 </h3>
                 <p className="text-2xl font-bold text-purple-600">
                   {isSkippedUser ? "N/A" : "0"}
@@ -646,7 +747,7 @@ const Dashboard = () => {
                 </div>
               </div>
               <div className="ml-4">
-                <h3 className="text-sm font-medium text-gray-500">
+                <h3 className="text-sm font-medium text-orange-600">
                   Staff Members
                 </h3>
                 <p className="text-2xl font-bold text-orange-600">
@@ -709,38 +810,68 @@ const Dashboard = () => {
         <div className="bg-white rounded-lg shadow p-6 mb-8">
           <h2 className="text-xl font-bold mb-4">Quick Actions</h2>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <Button
-              className="w-full"
-              disabled={isSkippedUser}
+            <Link
+              to="/menu/items"
+              className={`w-full ${isSkippedUser ? 'pointer-events-none' : ''}`}
               title={isSkippedUser ? "Complete setup to unlock this feature" : ""}
             >
-              <span className="mr-2">➕</span>
-              Add Menu Item
-            </Button>
+              <Button
+                variant="outline"
+                className="w-full h-full flex items-center justify-center"
+                disabled={isSkippedUser}
+              >
+                <BiFoodMenu className="mr-2" />
+                Manage Menu
+              </Button>
+            </Link>
+
+            <Link
+              to={`/tables`}
+              state={{ restaurantData: restaurantData }}
+              className={`w-full ${isSkippedUser ? 'pointer-events-none' : ''}`}
+              title={isSkippedUser ? "Complete setup to unlock this feature" : ""}
+            >
+              <Button
+                variant="outline"
+                className="w-full h-full flex items-center justify-center"
+                disabled={isSkippedUser}
+              >
+                <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
+                </svg>
+                Manage Tables
+              </Button>
+            </Link>
+
             <Button
-              className="w-full"
               variant="outline"
+              className="w-full flex items-center justify-center"
               disabled={isSkippedUser}
               title={isSkippedUser ? "Complete setup to unlock this feature" : ""}
+              onClick={() => navigate('/orders')}
             >
-              <span className="mr-2">📋</span>
+              <FiShoppingBag className="mr-2" />
               View Orders
             </Button>
+
             <Button
-              className="w-full"
               variant="outline"
+              className="w-full flex items-center justify-center"
               disabled={isSkippedUser}
               title={isSkippedUser ? "Complete setup to unlock this feature" : ""}
             >
-              <span className="mr-2">📊</span>
+              <FiBarChart2 className="mr-2" />
               Analytics
             </Button>
+
             <Button
-              className="w-full"
               variant="outline"
+              className="w-full flex items-center justify-center"
+              disabled={isSkippedUser}
+              title={isSkippedUser ? "Complete setup to unlock this feature" : ""}
               onClick={handleSettingsClick}
             >
-              <span className="mr-2">⚙️</span>
+              <FiSettings className="mr-2" />
               Settings
             </Button>
           </div>
@@ -809,8 +940,8 @@ const Dashboard = () => {
                     </span>
                     <span
                       className={`px-2 py-1 rounded-full text-xs ${restaurantData.selectedTempId.isFree
-                          ? "bg-green-100 text-green-700"
-                          : "bg-blue-100 text-blue-700"
+                        ? "bg-green-100 text-green-700"
+                        : "bg-blue-100 text-blue-700"
                         }`}
                     >
                       {restaurantData.selectedTempId.isFree ? "Free" : "Premium"}

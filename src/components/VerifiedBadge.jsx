@@ -1,5 +1,6 @@
 // src/components/VerifiedBadge.jsx
 import React from 'react'
+import { VscVerified } from 'react-icons/vsc'
 
 const VerifiedBadge = ({ isVerified, size = 'sm' }) => {
   if (!isVerified) return null
@@ -12,7 +13,7 @@ const VerifiedBadge = ({ isVerified, size = 'sm' }) => {
 
   return (
     <span className={`inline-flex items-center rounded-full bg-green-100 text-green-800 font-medium ${sizeClasses[size]}`}>
-      <span className="mr-1">✅</span>
+      <span className="mr-1 text-blue-600 text-lg"><VscVerified /></span>
       Verified Email
     </span>
   )
